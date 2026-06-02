@@ -14,7 +14,9 @@ import i18n
 
 app = FastAPI(title="MG4 Mate")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
-app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+static_dir = Path(__file__).parent / "static"
+static_dir.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 # ── Setup check middleware ────────────────────────────────────────────────────
