@@ -195,7 +195,8 @@ async def controls_action(request: Request):
     action = str(form.get("action", ""))
     entity_id = str(form.get("entity_id", ""))
     client = _ha_command_client()
-    feedback = {"ok": True, "message": "Command sent"}
+    t = i18n.get_t(db_reader.get_language())
+    feedback = {"ok": True, "message": t("command_sent")}
     try:
         if action == "lock":
             client.lock_entity(entity_id)
@@ -253,6 +254,8 @@ async def settings_page(request: Request):
     return templates.TemplateResponse(request, "settings.html", _ctx(
         page="settings", vehicle=vehicle, settings=settings,
         charge_types=db_reader.CHARGE_TYPES,
+        languages=i18n.available_languages(),
+        current_language=db_reader.get_language(),
     ))
 
 
@@ -280,6 +283,20 @@ async def save_prices(request: Request):
             except ValueError:
                 pass
     return HTMLResponse('<span style="color:#22c55e;font-size:13px">✓ Saved — costs recalculated</span>')
+
+
+@app.post("/api/settings/language", response_class=HTMLResponse)
+async def save_language(request: Request):
+    form = await request.form()
+    language = str(form.get("language", i18n.DEFAULT_LANGUAGE))
+    if language not in i18n.available_language_codes():
+        language = i18n.DEFAULT_LANGUAGE
+    db_reader.set_setting("language", language)
+    t = i18n.get_t(language)
+    return HTMLResponse(
+        f'<span style="color:#22c55e;font-size:13px">✓ {t("language_saved")}</span>',
+        headers={"HX-Refresh": "true"},
+    )
 
 
 @app.post("/api/history-import", response_class=HTMLResponse)
@@ -312,14 +329,18 @@ async def history_import(request: Request):
         client = HomeAssistantHistoryClient(ha_url, token, prefix)
         result = HistoryImporter(db, vehicle_id, prefix).import_days(client, days)
         db.close()
-        return HTMLResponse(
-            "<span style='color:#22c55e;font-size:13px'>"
-            f"✓ Imported {result['positions']} positions, {result['trips']} trips, {result['charges']} charges"
-            "</span>"
+        t = i18n.get_t(db_reader.get_language())
+        message = t("history_imported").format(
+            positions=result["positions"],
+            trips=result["trips"],
+            charges=result["charges"],
         )
+        return HTMLResponse(f"<span style='color:#22c55e;font-size:13px'>✓ {message}</span>")
     except Exception as exc:
+        t = i18n.get_t(db_reader.get_language())
+        message = t("history_import_failed").format(error=exc)
         return HTMLResponse(
-            f"<span style='color:#ef4444;font-size:13px'>Import failed: {exc}</span>",
+            f"<span style='color:#ef4444;font-size:13px'>{message}</span>",
             status_code=500,
         )
 

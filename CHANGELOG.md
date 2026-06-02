@@ -5,6 +5,7 @@
 - Added Home Assistant-backed MG4 remote controls page.
 - Added controls for locks, climate, defrosters, charging, target SOC, current limit, heated seats and find-my-car when exposed by Home Assistant.
 - Added Home Assistant history import for existing MG4 positions, trips and charge sessions.
+- Added file-based interface translations with English and Italian locale files selectable from Settings.
 
 ## 1.0.0
 
