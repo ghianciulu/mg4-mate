@@ -31,13 +31,13 @@ MG4 Mate does not call the MG/iSMART cloud directly. It reads Home Assistant sta
 Example entity:
 
 ```text
-sensor.lsjwh4097rn111393_soc
+sensor.lsjwh4097rnxxxxxx_soc
 ```
 
 Entity prefix:
 
 ```text
-lsjwh4097rn111393
+lsjwh4097rnxxxxxx
 ```
 
 ## Home Assistant Add-On Installation
