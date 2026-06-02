@@ -26,8 +26,8 @@ async def setup_check(request: Request, call_next):
     path = request.url.path
     if path.startswith("/setup") or path.startswith("/api/") or path.startswith("/static/"):
         return await call_next(request)
-    # If env vars are set, skip wizard (dev mode)
-    if os.environ.get("LEAPMOTOR_USER"):
+    # If env vars are set, skip wizard (dev mode / non-Leapmotor source)
+    if os.environ.get("LEAPMOTOR_USER") or os.environ.get("VEHICLE_SOURCE") == "homeassistant":
         return await call_next(request)
     if not db_reader.is_setup_complete():
         # Honor the HA ingress path so the redirect stays inside the add-on panel

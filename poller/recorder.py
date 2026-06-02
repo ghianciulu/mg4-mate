@@ -6,7 +6,7 @@ from typing import Optional
 
 from db import Database
 from state_machine import State, StateMachine, StateEvent, _PARKED_STATES
-from client import VehicleData
+from vehicle_data import VehicleData
 
 log = logging.getLogger(__name__)
 

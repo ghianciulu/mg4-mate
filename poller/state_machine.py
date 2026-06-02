@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from client import VehicleData
+from vehicle_data import VehicleData
 
 log = logging.getLogger(__name__)
 

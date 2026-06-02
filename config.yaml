@@ -29,6 +29,14 @@ ports_description:
 
 options:
   log_level: "info"
+  VEHICLE_SOURCE: "leapmotor"
+  HA_URL: ""
+  HA_TOKEN: ""
+  HA_ENTITY_PREFIX: ""
 
 schema:
   log_level: "list(trace|debug|info|warning|error|critical)"
+  VEHICLE_SOURCE: "list(leapmotor|homeassistant)"
+  HA_URL: "str?"
+  HA_TOKEN: "password?"
+  HA_ENTITY_PREFIX: "str?"

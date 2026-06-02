@@ -6,57 +6,13 @@ backend only exposes /status/get/c10 for this model.
 import json
 import logging
 import types
-from dataclasses import dataclass
 from urllib.parse import quote
 
 from leapmotor_api import LeapmotorApiClient
 from leapmotor_api.client import build_signed_headers
+from vehicle_data import VehicleData
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class VehicleData:
-    vin: str
-    timestamp_ms: int
-    soc: float
-    range_km: float
-    odometer_km: float
-    speed_kmh: float
-    gear: str            # P R N D
-    vehicle_state: str   # parked driving
-    charging_status: int
-    charge_power_kw: float
-    latitude: float
-    longitude: float
-    outside_temp: float
-    inside_temp: float
-    climate_target_temp: float
-    battery_min_temp: float
-    is_locked: bool
-    climate_on: bool
-    climate_cooling: bool     # quick-cool active (signal 2669 == 2)
-    climate_heating: bool     # quick-heat active (signal 2681 == 2)
-    climate_defrost: bool     # windshield defrost active (signal 1945 == 2)
-    trunk_open: bool
-    windows_open: bool
-    sunshade_open: bool
-    any_door_open: bool       # driver/passenger/rear doors or trunk
-    plug_connected: bool      # cable inserted (signal 1149)
-    remaining_charge_min: int # minutes to full (signal 1200), 0 when not charging
-    charge_voltage_v: float   # charging voltage (signal 1177)
-    charge_current_a: float   # charging current (signal 1178)
-
-    def fingerprint(self) -> tuple:
-        """Compact snapshot of signals that indicate car activity."""
-        return (
-            self.is_locked,
-            round(self.soc),           # 1% granularity avoids noise
-            round(self.inside_temp),   # 1°C granularity
-            self.any_door_open,
-            self.charging_status,
-            self.plug_connected,
-        )
 
 
 def _b10_patched_get_vehicle_raw_status(self, vehicle):
