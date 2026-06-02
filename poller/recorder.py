@@ -75,10 +75,9 @@ class Recorder:
 
         # During active trip: record GPS point and accumulate regen.
         # Regen = energy flowing INTO the pack while unplugged. charge_power_kw is now a
-        # magnitude (|current×voltage|), so we gate on a clearly-negative charge current
-        # (1178 < 0 = into pack, per the Leapmotor convention). The B10 sign still needs
-        # on-road verification — gating this way stays conservative: at worst it counts 0,
-        # never mistaking driving discharge for regen.
+        # magnitude (|current×voltage|), so we gate on a clearly-negative charge current.
+        # This stays conservative: at worst it counts 0, never mistaking driving
+        # discharge for regen.
         if self._sm.state == State.DRIVING and self._active_trip_id:
             self._db.add_trip_position(self._active_trip_id, data)
             if not data.plug_connected and data.charge_current_a < -3.0:

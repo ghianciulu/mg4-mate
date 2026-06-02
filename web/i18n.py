@@ -1,4 +1,4 @@
-"""LeapMotor Mate — IT/EN translations."""
+"""MG4 Mate — IT/EN translations."""
 
 _T: dict[str, dict[str, str]] = {
     "en": {
@@ -7,7 +7,6 @@ _T: dict[str, dict[str, str]] = {
         "nav_trips":       "Trips",
         "nav_charges":     "Charges",
         "nav_statistics":  "Statistics",
-        "nav_commands":    "Commands",
         "nav_vehicle":     "Vehicle",
         "nav_settings":    "Settings",
         # Vehicle page
@@ -120,8 +119,6 @@ _T: dict[str, dict[str, str]] = {
         "sessions_plural":      "sessions",
         "live_badge":           "LIVE",
         # Commands
-        "commands_title":       "Commands",
-        "commands_subtitle":    "Remote vehicle controls",
         "vehicle_lock":         "Vehicle Lock",
         "locked":               "● Locked",
         "unlocked":             "○ Unlocked",
@@ -219,17 +216,6 @@ _T: dict[str, dict[str, str]] = {
         "fast_desc":            "DC fast chargers up to 100 kW",
         "hpc_desc":             "High Power Charging 150 kW+",
         # Setup
-        "setup_title":          "Welcome to LeapMotor Mate",
-        "setup_subtitle":       "Configure your vehicle connection to get started",
-        "setup_email":          "Leapmotor account email",
-        "setup_email_ph":       "you@example.com",
-        "setup_password":       "Password",
-        "setup_pin":            "Operation PIN",
-        "setup_pin_ph":         "6-digit PIN",
-        "setup_battery":        "Battery capacity (kWh)",
-        "setup_battery_hint":   "B10 Std: 67.1 · B10 LR: 73.4 · T03: 40.3 · C10: 88.5",
-        "setup_language":       "Language",
-        "setup_submit":         "Connect & Start",
         "lang_en":              "English",
         "lang_it":              "Italiano",
     },
@@ -239,7 +225,6 @@ _T: dict[str, dict[str, str]] = {
         "nav_trips":       "Viaggi",
         "nav_charges":     "Ricariche",
         "nav_statistics":  "Statistiche",
-        "nav_commands":    "Comandi",
         "nav_vehicle":     "Veicolo",
         "nav_settings":    "Impostazioni",
         # Vehicle page
@@ -352,8 +337,6 @@ _T: dict[str, dict[str, str]] = {
         "sessions_plural":      "sessioni",
         "live_badge":           "LIVE",
         # Commands
-        "commands_title":       "Comandi",
-        "commands_subtitle":    "Controlli remoti veicolo",
         "vehicle_lock":         "Blocco veicolo",
         "locked":               "● Bloccata",
         "unlocked":             "○ Sbloccata",
@@ -451,17 +434,6 @@ _T: dict[str, dict[str, str]] = {
         "fast_desc":            "DC rapido fino a 100 kW",
         "hpc_desc":             "High Power Charging 150 kW+",
         # Setup
-        "setup_title":          "Benvenuto in LeapMotor Mate",
-        "setup_subtitle":       "Configura la connessione al tuo veicolo per iniziare",
-        "setup_email":          "Email account Leapmotor",
-        "setup_email_ph":       "tu@esempio.com",
-        "setup_password":       "Password",
-        "setup_pin":            "PIN operativo",
-        "setup_pin_ph":         "PIN a 6 cifre",
-        "setup_battery":        "Capacità batteria (kWh)",
-        "setup_battery_hint":   "B10 Std: 67.1 · B10 LR: 73.4 · T03: 40.3 · C10: 88.5",
-        "setup_language":       "Lingua",
-        "setup_submit":         "Connetti e avvia",
         "lang_en":              "English",
         "lang_it":              "Italiano",
     },

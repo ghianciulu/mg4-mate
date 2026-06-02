@@ -24,7 +24,7 @@ class HomeAssistantVehicle:
 
 
 class HomeAssistantMateClient:
-    """Read MG4 states from Home Assistant and expose the LeapMotor Mate data shape."""
+    """Read MG4 states from Home Assistant and expose the MG4 Mate data shape."""
 
     def __init__(
         self,

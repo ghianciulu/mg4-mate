@@ -10,11 +10,9 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 BATTERY_CAPACITY_DEFAULTS: dict[str, float] = {
-    "T03": 37.3,   # EU only variant
-    "B10": 67.1,   # Pro Max 434 km WLTP (EU)
-    "C10": 69.9,   # RWD (EU)
+    "MG4": 64.0,
 }
-BATTERY_CAPACITY_FALLBACK = 67.1
+BATTERY_CAPACITY_FALLBACK = 64.0
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (
@@ -129,7 +127,7 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 class Database:
-    def __init__(self, path: str = "leapmotor_mate.db"):
+    def __init__(self, path: str = "mg4_mate.db"):
         self._path = path
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
@@ -179,23 +177,6 @@ class Database:
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(value))
         )
         self._conn.commit()
-
-    def get_or_create_device_id(self) -> str:
-        """One stable device_id for this Mate install, shared by poller and web.
-        Leapmotor binds sessions per device on the shared app cert — a random
-        device_id per login (the library default) kept evicting other clients
-        (e.g. the HA integration). INSERT OR IGNORE so concurrent processes converge
-        on the same value instead of racing to overwrite it."""
-        import uuid
-        did = self.get_setting("mate_device_id")
-        if not did:
-            self._conn.execute(
-                "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
-                ("mate_device_id", uuid.uuid4().hex),
-            )
-            self._conn.commit()
-            did = self.get_setting("mate_device_id")
-        return did
 
     def get_battery_capacity(self) -> float:
         return float(self.get_setting("battery_capacity_kwh", str(BATTERY_CAPACITY_FALLBACK)))

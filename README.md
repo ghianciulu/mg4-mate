@@ -1,220 +1,121 @@
-# LeapMotor Mate
+# MG4 Mate
 
-**Trip tracking, charge logging and remote control for Leapmotor vehicles** — a self‑hosted companion (think *TeslaMate* for Leapmotor). Runs as a **Home Assistant add‑on** or as a **standalone Docker** container.
+Trip tracking, charge logging and statistics for MG4 vehicles using Home Assistant entities from the SAIC MQTT Gateway.
 
-Supported models: **B10 · C10 · T03** (European spec).
-
-> 🇮🇹 [Versione italiana più sotto.](#leapmotor-mate--italiano)
-
-## Screenshots
-
-| Overview | Charges |
-|---|---|
-| ![Overview](docs/screenshots/overview.png) | ![Charges](docs/screenshots/charges.png) |
-| **Statistics** | **Settings** |
-| ![Statistics](docs/screenshots/statistics.png) | ![Settings](docs/screenshots/settings.png) |
-
----
+MG4 Mate is a self-hosted companion inspired by TeslaMate-style trip and charge tracking. It stores data locally in SQLite and provides a web UI for overview, trips, charges, vehicle status and statistics.
 
 ## Features
 
-- **Overview** — live status, battery, range, location map, vehicle picture.
-- **Trips** — automatic trip detection with route map, distance, energy, efficiency and regen.
-- **Charges** — charge sessions with AC/DC detection, energy added, power and a distribution chart.
-- **Statistics** — driving/AC/other energy split and a 6‑week consumption trend (from the Leapmotor cloud).
-- **Remote control** — lock, windows, trunk, panoramic roof, climate, find car, battery preheat.
-- **Independent** — polls the Leapmotor cloud directly (configurable 10–30 s). No dependency on the phone app or Home Assistant; polling the cloud does **not** wake or drain the car.
-- **Bilingual UI** — English / Italiano.
+- **Overview**: live SOC, range, odometer, charging state and vehicle position.
+- **Trips**: automatic trip detection with route map, distance, duration and efficiency.
+- **Charges**: charge sessions with SOC delta, estimated energy added, peak power and cost categories.
+- **Statistics**: distance, energy use, efficiency, driving time and regeneration summaries.
+- **Home Assistant source**: reads MG4 entities already published by SAIC MQTT Gateway.
+- **Local storage**: data is stored in a local SQLite database.
 
-## How it works
+## How It Works
 
-```
-Leapmotor Cloud  ──►  Poller (state machine)  ──►  SQLite  ──►  Web UI (FastAPI + HTMX)
-                       trips / charges / regen                   + remote commands
+```text
+SAIC MQTT Gateway -> Home Assistant entities -> MG4 Mate poller -> SQLite -> Web UI
 ```
 
-The data lives in a local SQLite database. Nothing is sent anywhere except to the official Leapmotor cloud.
-
----
+MG4 Mate does not call the MG/iSMART cloud directly. It reads Home Assistant state data through the Home Assistant REST API.
 
 ## Requirements
 
-1. **A Leapmotor account.** ⚠️ **Use a *dedicated* account, not the one on your phone.** The Leapmotor cloud binds a session per device, so a second client can evict your phone (or vice‑versa). Create a separate account and share the car with it from the official app.
-2. **The Leapmotor app TLS certificate** (`app.crt` + `app.key`). This is the *same for everyone* (it identifies the Leapmotor app, not you) and is **not** included in this repository. Download the two files from:
+1. Home Assistant.
+2. SAIC MQTT Gateway configured and publishing MG4 entities through MQTT discovery.
+3. A Home Assistant long-lived access token.
+4. The MG4 entity prefix, usually the lower-case VIN used in entity ids.
 
-   👉 **https://github.com/markoceri/leapmotor-certs**
+Example entity:
 
-   You upload them once during the setup wizard (see below).
+```text
+sensor.lsjwh4097rn111393_soc
+```
 
----
+Entity prefix:
 
-## Installation
+```text
+lsjwh4097rn111393
+```
 
-### Option A — Home Assistant add‑on
+## Home Assistant Add-On Installation
 
-1. In Home Assistant: **Settings → Add‑ons → Add‑on Store → ⋮ → Repositories**, and add the **add‑on** repository URL (note the `-addon` suffix — this is a separate repo from the code):
+1. In Home Assistant go to **Settings -> Add-ons -> Add-on Store**.
+2. Open **Repositories** from the top-right menu.
+3. Add:
 
+   ```text
+   https://github.com/ghianciulu/mg4-mate-addon
    ```
-   https://github.com/ProtossBlaster/leapmotor-mate-addon
-   ```
 
-2. Install **LeapMotor Mate**, start it, and open the panel (car icon in the sidebar).
-3. Follow the setup wizard.
+4. Install **MG4 Mate**.
+5. Configure the add-on options.
 
-The database is stored in the add‑on's persistent `/data`, so it survives restarts and updates.
+Recommended local configuration:
 
-### Option B — Standalone Docker
+```yaml
+VEHICLE_SOURCE: homeassistant
+HA_URL: http://192.168.x.x:8123
+HA_TOKEN: your_home_assistant_long_lived_access_token
+HA_ENTITY_PREFIX: your_lowercase_vin_prefix
+```
+
+Prefer a local Home Assistant URL when possible. It avoids public DNS and HTTPS endpoint issues.
+
+## Standalone Docker
 
 ```bash
-git clone https://github.com/ProtossBlaster/leapmotor-mate.git
-cd leapmotor-mate
+git clone https://github.com/ghianciulu/mg4-mate.git
+cd mg4-mate
 docker compose up -d
 ```
 
-Then open **http://localhost:4000** and follow the setup wizard.
+Set these environment variables in `docker-compose.yml` or your container runtime:
 
-The database is stored in `./data/` (mounted at `/data` in the container).
+```text
+VEHICLE_SOURCE=homeassistant
+HA_URL=http://192.168.x.x:8123
+HA_TOKEN=your_home_assistant_long_lived_access_token
+HA_ENTITY_PREFIX=your_lowercase_vin_prefix
+```
 
----
+## Expected Entities
 
-## Setup wizard
+The adapter reads these Home Assistant entities when available:
 
-The first launch walks you through two steps:
+```text
+sensor.<prefix>_soc
+sensor.<prefix>_soc_kwh
+sensor.<prefix>_range
+sensor.<prefix>_mileage
+sensor.<prefix>_vehicle_speed
+sensor.<prefix>_power
+sensor.<prefix>_voltage
+sensor.<prefix>_current
+sensor.<prefix>_remaining_charging_time
+sensor.<prefix>_total_battery_capacity
+sensor.<prefix>_interior_temperature
+sensor.<prefix>_exterior_temperature
+device_tracker.<prefix>_vehicle_position
+binary_sensor.<prefix>_vehicle_running
+binary_sensor.<prefix>_battery_charging
+binary_sensor.<prefix>_charger_connected
+binary_sensor.<prefix>_boot
+binary_sensor.<prefix>_window_driver
+binary_sensor.<prefix>_window_passenger
+binary_sensor.<prefix>_window_rear_left
+binary_sensor.<prefix>_window_rear_right
+lock.<prefix>_doors_lock
+```
 
-1. **Certificate** — upload `app.crt` and `app.key` (or paste their PEM text). Get them from [markoceri/leapmotor-certs](https://github.com/markoceri/leapmotor-certs). Stored persistently in `/data/certs`.
-2. **Login** — your Leapmotor account email, password and operation **PIN**. The wizard auto‑detects your model and battery (EU spec).
+## Notes
 
-That's it — the poller starts and data begins to appear.
-
-## Configuration
-
-Everything is configured from the web UI (**Settings**), no YAML needed:
-
-- **Polling interval** — parked (default 30 s) and driving (default 10 s). Faster catches trips/charges sooner; slower means fewer API calls. Polling the cloud does not wake or drain the car.
-- **Charge price** — for cost estimates.
-- **Language** — English / Italiano.
-
-### Optional: boost from Home Assistant
-
-If you run Home Assistant on the same network, you can trigger a temporary fast‑poll when a trip is about to start (e.g. from a Bluetooth/phone shortcut) by calling `POST http://<mate-host>:4000/api/boost`. With the default 30 s cadence this is optional.
-
----
-
-## Notes & disclaimer
-
-- Use a **dedicated Leapmotor account** (see Requirements).
-- This is an **unofficial** project, not affiliated with Leapmotor. It relies on reverse‑engineered cloud APIs and may break if Leapmotor changes them. Use at your own risk.
-- Built on the [`leapmotor-api`](https://github.com/markoceri/leapmotor-api) Python client.
-
-## Credits
-
-- [`markoceri/leapmotor-api`](https://github.com/markoceri/leapmotor-api) — Python cloud client.
-- [`markoceri/leapmotor-certs`](https://github.com/markoceri/leapmotor-certs) — app certificate.
-- Inspired by [TeslaMate](https://github.com/teslamate-org/teslamate) and the Leapmotor Home Assistant integrations.
+- Trip quality depends on the SAIC MQTT Gateway refresh cadence.
+- Around 30-40 second updates while driving are enough for useful route maps and consumption statistics.
+- Do not commit Home Assistant tokens. Pass them only through add-on options or environment variables.
 
 ## License
 
-[GNU AGPL‑3.0](./LICENSE) © Silvio Bressani.
-
----
----
-
-# LeapMotor Mate · Italiano
-
-**Tracciamento viaggi, registro ricariche e controllo remoto per veicoli Leapmotor** — un companion self‑hosted (un *TeslaMate* per Leapmotor). Funziona come **add‑on di Home Assistant** o come **container Docker standalone**.
-
-Modelli supportati: **B10 · C10 · T03** (spec. europea).
-
-## Schermate
-
-| Panoramica | Ricariche |
-|---|---|
-| ![Panoramica](docs/screenshots/overview.png) | ![Ricariche](docs/screenshots/charges.png) |
-| **Statistiche** | **Impostazioni** |
-| ![Statistiche](docs/screenshots/statistics.png) | ![Impostazioni](docs/screenshots/settings.png) |
-
-## Funzionalità
-
-- **Panoramica** — stato live, batteria, autonomia, mappa posizione, immagine del veicolo.
-- **Viaggi** — rilevamento automatico con mappa del percorso, distanza, energia, efficienza e regen.
-- **Ricariche** — sessioni con rilevamento AC/DC, energia aggiunta, potenza e grafico di distribuzione.
-- **Statistiche** — ripartizione energia guida/clima/altro e trend consumo a 6 settimane (dal cloud Leapmotor).
-- **Controllo remoto** — blocco, finestrini, bagagliaio, tetto panoramico, clima, trova auto, preriscaldo batteria.
-- **Indipendente** — interroga direttamente il cloud Leapmotor (configurabile 10–30 s). Nessuna dipendenza dall'app o da Home Assistant; interrogare il cloud **non** sveglia né scarica l'auto.
-- **UI bilingue** — Italiano / English.
-
-## Come funziona
-
-```
-Cloud Leapmotor  ──►  Poller (state machine)  ──►  SQLite  ──►  Web UI (FastAPI + HTMX)
-                       viaggi / ricariche / regen              + comandi remoti
-```
-
-I dati restano in un database SQLite locale. Nulla viene inviato altrove se non al cloud ufficiale Leapmotor.
-
-## Requisiti
-
-1. **Un account Leapmotor.** ⚠️ **Usa un account *dedicato*, non quello del telefono.** Il cloud Leapmotor lega una sessione per dispositivo: un secondo client può sfrattare il telefono (e viceversa). Crea un account separato e condividi l'auto con esso dall'app ufficiale.
-2. **Il certificato TLS dell'app Leapmotor** (`app.crt` + `app.key`). È *uguale per tutti* (identifica l'app, non te) e **non** è incluso in questo repository. Scarica i due file da:
-
-   👉 **https://github.com/markoceri/leapmotor-certs**
-
-   Li carichi una volta sola durante il wizard di setup.
-
-## Installazione
-
-### Opzione A — Add‑on Home Assistant
-
-1. In Home Assistant: **Impostazioni → Add‑on → Store → ⋮ → Repository**, e aggiungi l'URL del repository **add‑on** (nota il suffisso `-addon` — è un repo separato dal codice):
-
-   ```
-   https://github.com/ProtossBlaster/leapmotor-mate-addon
-   ```
-
-2. Installa **LeapMotor Mate**, avvialo e apri il pannello (icona auto nella barra laterale).
-3. Segui il wizard di setup.
-
-Il database è salvato nella `/data` persistente dell'add‑on, quindi sopravvive a riavvii e aggiornamenti.
-
-### Opzione B — Docker standalone
-
-```bash
-git clone https://github.com/ProtossBlaster/leapmotor-mate.git
-cd leapmotor-mate
-docker compose up -d
-```
-
-Poi apri **http://localhost:4000** e segui il wizard.
-
-Il database è salvato in `./data/` (montato su `/data` nel container).
-
-## Wizard di setup
-
-Al primo avvio due passi:
-
-1. **Certificato** — carica `app.crt` e `app.key` (oppure incolla il testo PEM). Li trovi su [markoceri/leapmotor-certs](https://github.com/markoceri/leapmotor-certs). Salvati in modo persistente in `/data/certs`.
-2. **Login** — email account Leapmotor, password e **PIN** operativo. Il wizard rileva automaticamente modello e batteria (spec. EU).
-
-Fatto — il poller parte e i dati iniziano a comparire.
-
-## Configurazione
-
-Tutto si configura dalla UI web (**Impostazioni**), senza YAML:
-
-- **Intervallo di polling** — parcheggiata (default 30 s) e in marcia (default 10 s). Più veloce rileva prima viaggi/ricariche; più lento riduce le chiamate. Interrogare il cloud non sveglia né scarica l'auto.
-- **Prezzo ricarica** — per la stima dei costi.
-- **Lingua** — Italiano / English.
-
-### Opzionale: boost da Home Assistant
-
-Se hai Home Assistant sulla stessa rete, puoi attivare un polling veloce temporaneo all'inizio di un viaggio (es. da uno shortcut Bluetooth/telefono) chiamando `POST http://<host-mate>:4000/api/boost`. Con la cadenza di default a 30 s è opzionale.
-
-## Note e disclaimer
-
-- Usa un **account Leapmotor dedicato** (vedi Requisiti).
-- Progetto **non ufficiale**, non affiliato a Leapmotor. Usa API cloud ricavate per reverse‑engineering e può smettere di funzionare se Leapmotor le cambia. Usalo a tuo rischio.
-- Basato sul client Python [`leapmotor-api`](https://github.com/markoceri/leapmotor-api).
-
-## Licenza
-
-[GNU AGPL‑3.0](./LICENSE) © Silvio Bressani.
+[GNU AGPL-3.0](./LICENSE)

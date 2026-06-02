@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{{ t('nav_overview') }} — LeapMotor Mate{% endblock %}
+{% block title %}{{ t('nav_overview') }} — MG4 Mate{% endblock %}
 
 {% block content %}
 <div class="mb-6">
   <h1 class="text-2xl font-bold text-white">{{ t('overview_title') }}</h1>
-  <p class="text-slate-400 text-sm mt-1">{{ vehicle.car_type if vehicle else 'LeapMotor' }} {{ t('live_status') }}</p>
+  <p class="text-slate-400 text-sm mt-1">{{ vehicle.car_type if vehicle else 'MG4' }} {{ t('live_status') }}</p>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -35,7 +35,7 @@
         iconSize: [14,14], iconAnchor: [7,7]
       });
       L.marker([{{ status.latitude }}, {{ status.longitude }}], {icon}).addTo(map)
-        .bindPopup('{{ vehicle.car_type if vehicle else "Leapmotor" }} — {{ status.last_seen }}').openPopup();
+        .bindPopup('{{ vehicle.car_type if vehicle else "MG4" }} — {{ status.last_seen }}').openPopup();
     </script>
     {% else %}
     <div class="flex items-center justify-center h-64 text-slate-500">

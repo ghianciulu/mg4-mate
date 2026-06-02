@@ -2,16 +2,8 @@
 import sqlite3
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 import os
-
-# In-memory optimistic overlay: after a command, keep the expected state for
-# _OPT_TTL seconds so the poller can't overwrite it before the UI refreshes.
-_opt_overrides: dict = {}
-_opt_expiry: float = 0.0
-_OPT_TTL = 30
-
 
 CHARGE_TYPES = {
     "HOME": {"label": "Home",       "icon": "🏠", "color": "#22c55e"},
@@ -41,7 +33,7 @@ def _conn(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-DB_PATH = os.environ.get("DB_PATH", "leapmotor_mate.db")
+DB_PATH = os.environ.get("DB_PATH", "mg4_mate.db")
 
 
 def _get():
@@ -64,24 +56,6 @@ def set_setting(key: str, value: str) -> None:
     db = _conn_rw()
     db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)", (key, str(value)))
     db.commit()
-
-
-def get_or_create_device_id() -> str:
-    """One stable device_id for this Mate install, shared by poller and web.
-    Must match the poller's value so the whole app is a single Leapmotor device on
-    the shared app cert (a random per-login device_id kept evicting other clients).
-    INSERT OR IGNORE so poller and web converge on the same value."""
-    import uuid
-    did = get_setting("mate_device_id")
-    if not did:
-        db = _conn_rw()
-        db.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)",
-            ("mate_device_id", uuid.uuid4().hex),
-        )
-        db.commit()
-        did = get_setting("mate_device_id")
-    return did
 
 
 def is_setup_complete() -> bool:
@@ -143,7 +117,7 @@ def update_charge_price(key: str, value: float) -> None:
 
 
 def upsert_vehicle(vin: str, car_type: str) -> None:
-    """Pre-populate vehicles table from setup wizard (before first poller run)."""
+    """Pre-populate vehicles table before the first poller run."""
     db = _conn_rw()
     db.execute(
         "INSERT OR IGNORE INTO vehicles (vin, car_type) VALUES (?,?)",
@@ -160,116 +134,6 @@ def get_vehicle():
     return dict(v) if v else None, s
 
 
-def clear_optimistic_status() -> None:
-    """Remove the in-memory optimistic overlay (called when API does not confirm the command)."""
-    global _opt_overrides, _opt_expiry
-    _opt_overrides = {}
-    _opt_expiry = 0.0
-
-
-def write_optimistic_status(overrides: dict) -> None:
-    """Copy the latest position row, apply field overrides, insert as new row.
-       Also caches overrides in memory so get_latest_status() can re-apply them
-       even if the poller overwrites the DB row before the UI refresh fires.
-    """
-    global _opt_overrides, _opt_expiry
-    db = _conn_rw()
-    row = db.execute("SELECT * FROM positions ORDER BY id DESC LIMIT 1").fetchone()
-    if not row:
-        return
-    d = dict(row)
-    d.pop("id")
-    d["recorded_at"] = datetime.now(timezone.utc).isoformat()
-    d.update(overrides)
-    cols = ", ".join(d.keys())
-    placeholders = ", ".join("?" for _ in d)
-    db.execute(f"INSERT INTO positions ({cols}) VALUES ({placeholders})", list(d.values()))
-    db.commit()
-    _opt_overrides = dict(overrides)
-    _opt_expiry = time.time() + _OPT_TTL
-
-
-def save_fresh_signals(signals: dict) -> None:
-    """Write a fresh position row from raw API signals (called after a command)."""
-    db = _conn_rw()
-    v = db.execute("SELECT id FROM vehicles LIMIT 1").fetchone()
-    if not v:
-        return
-    vehicle_id = v["id"]
-
-    def sig(key, default=0):  return int(signals.get(key) or default)
-    def sigf(key, default=0.0): return float(signals.get(key) or default)
-
-    def _is_charging() -> bool:
-        """Charging only happens while PARKED, so the car must be stationary (gear P,
-        speed ~0); plus the cable plugged in (1149) AND a real charge current (1178). The
-        motion gate is essential: during regen the pack current is strongly negative (same
-        sign as charging) and 1149 reads 1 spuriously, so without it driving is mistaken
-        for charging. Signal 1939 (AC fan mode) is not used."""
-        if int(signals.get("1010") or 0) != 0:   # gear R/N/D → moving
-            return False
-        try:
-            if float(signals.get("1319") or 0) > 2.0:   # speed > 2 km/h → moving
-                return False
-        except (TypeError, ValueError):
-            pass
-        if int(signals.get("1149") or 0) == 0:
-            return False
-        cur = signals.get("1178"); volt = signals.get("1177"); rem = signals.get("1200")
-        try:    cur = float(cur) if cur is not None else None
-        except (TypeError, ValueError): cur = None
-        try:    volt = float(volt) if volt is not None else None
-        except (TypeError, ValueError): volt = None
-        power = abs(cur * volt) / 1000.0 if (cur is not None and volt is not None and abs(cur) >= 3.0) else None
-        if cur is not None:
-            if abs(cur) < 3.0:
-                return False
-            return rem is not None or (power is not None and power >= 1.0)
-        if power is not None:
-            return power >= 1.0 and rem is not None
-        return int(signals.get("1149") or 0) == 2
-
-    gear_map = {0: "P", 1: "R", 2: "N", 3: "D"}
-    windows_open = int(any(sig(k) != 0 for k in ("1693", "1694", "1695", "1696")))
-
-    # Plug from signal 47 (reliable, stays 0 while driving) — 1149 only as fallback,
-    # since it reads 1 spuriously during regen at speed. Matches leapmotor-ha.
-    _plug47 = signals.get("47")
-    plug_connected = (int(_plug47) == 1) if _plug47 is not None else (sig("1149") in (1, 2))
-
-    db.execute(
-        """INSERT INTO positions (
-            vehicle_id, recorded_at,
-            latitude, longitude, speed_kmh, odometer_km,
-            soc, range_km, gear, charging,
-            battery_min_temp, climate_target_temp, inside_temp,
-            is_locked, climate_on, plug_connected,
-            climate_cooling, climate_heating, climate_defrost,
-            trunk_open, windows_open, sunshade_open,
-            remaining_charge_min, charge_voltage_v, charge_current_a
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (
-            vehicle_id,
-            datetime.now(timezone.utc).isoformat(),
-            sigf("3725") or sigf("2190"),
-            sigf("3724") or sigf("2191"),
-            sigf("1319"), sigf("1318"),
-            sigf("100003") or sigf("1204"),
-            sigf("3260"),
-            gear_map.get(sig("1010"), "P"),
-            int(_is_charging()),
-            sigf("1182"), sigf("2183"), sigf("1349"),
-            sig("1298"), sig("1938"), int(plug_connected),
-            int(sig("2669") == 2), int(sig("2681") == 2), int(sig("1945") == 2),
-            sig("1281"), windows_open, sig("1724"),
-            sig("1200") or None,
-            sigf("1177") or None,
-            sigf("1178") or None,
-        ),
-    )
-    db.commit()
-
-
 def get_latest_status() -> Optional[dict]:
     db = _get()
     row = db.execute(
@@ -278,17 +142,8 @@ def get_latest_status() -> Optional[dict]:
     if not row:
         return None
     d = dict(row)
-    # Apply in-memory optimistic overrides if still within TTL
-    if time.time() < _opt_expiry and _opt_overrides:
-        d.update(_opt_overrides)
-    # Sunshade: signal 1724 is the panoramic glass (always non-zero on B10), not the shade.
-    # Override with the last command we sent, stored in settings.
-    shade_state = get_setting("sunshade_last_state", "")
-    if shade_state != "" and "sunshade_open" not in _opt_overrides:
-        d["sunshade_open"] = int(shade_state)
     # Charge power: positions stores current/voltage, not a power column. Compute it
-    # (|I×V|), only when the charge current is meaningful (>=3A). Signal 49 is NOT a
-    # power (it's the left-mirror-heating flag) and must never be used here.
+    # (|I×V|), only when the charge current is meaningful (>=3A).
     cur_a = d.get("charge_current_a")
     volt_v = d.get("charge_voltage_v")
     if cur_a is not None and volt_v is not None and abs(cur_a) >= 3.0:

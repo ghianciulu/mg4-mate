@@ -2,7 +2,6 @@
   <div class="card text-slate-400 text-sm">{{ t('no_data') }} — {{ t('check_poller') }}</div>
 {% else %}
 
-{# ── Mushroom-style info card: tinted gradient, rounded 18px, icon + label + value ── #}
 {% macro card(icon, label, value, rgb) %}
 <div style="border-radius:18px;background:linear-gradient(135deg, rgba({{ rgb }},0.16), rgba({{ rgb }},0.04));border:1px solid rgba({{ rgb }},0.24);padding:14px;display:flex;align-items:center;gap:12px">
   <div style="width:42px;height:42px;border-radius:12px;background:rgba({{ rgb }},0.18);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">{{ icon }}</div>
@@ -13,64 +12,38 @@
 </div>
 {% endmacro %}
 
-{% set GREEN='76,175,80' %}{% set RED='244,67,54' %}{% set BLUE='33,150,243' %}{% set CYAN='0,188,212' %}{% set AMBER='245,158,11' %}{% set GRAY='100,116,139' %}
-
-{% macro state_card(icon_closed, icon_open, label, st, open_rgb=RED) %}
-  {% if st is none %}
-    {{ card('—', label, t('no_data'), GRAY) }}
-  {% elif st %}
-    {{ card(icon_open, label, t('open_state'), open_rgb) }}
-  {% else %}
-    {{ card(icon_closed, label, t('closed_state'), GREEN) }}
-  {% endif %}
-{% endmacro %}
+{% set GREEN='76,175,80' %}{% set RED='244,67,54' %}{% set BLUE='33,150,243' %}{% set CYAN='0,188,212' %}{% set GRAY='100,116,139' %}
 
 <div class="space-y-5">
-
-  <!-- Tyre pressure -->
-  <div>
-    <div class="text-white font-semibold mb-2">🛞 {{ t('tyre_pressure') }}</div>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {% for tp, label in [(vs.tyres.fl, t('tyre_fl')), (vs.tyres.fr, t('tyre_fr')), (vs.tyres.rl, t('tyre_rl')), (vs.tyres.rr, t('tyre_rr'))] %}
-        {% set val = ('%.2f'|format(tp.bar) ~ ' bar') if tp.bar is not none else '—' %}
-        {% if tp.low %}{{ card('⚠️', label, val ~ ' · ' ~ t('tyre_low'), RED) }}
-        {% else %}{{ card('🛞', label, val, BLUE) }}{% endif %}
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- Doors -->
   <div>
     <div class="text-white font-semibold mb-2">🚪 {{ t('doors') }}</div>
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-      {{ state_card('🚪', '🚪', t('door_driver'),     vs.doors.driver) }}
-      {{ state_card('🚪', '🚪', t('door_passenger'),  vs.doors.passenger) }}
-      {{ state_card('🚪', '🚪', t('door_rear_left'),  vs.doors.rear_left) }}
-      {{ state_card('🚪', '🚪', t('door_rear_right'), vs.doors.rear_right) }}
-      {{ state_card('🧳', '🧳', t('door_trunk'),      vs.doors.trunk) }}
+      {% if vs.doors.trunk %}
+        {{ card('🧳', t('door_trunk'), t('open_state'), RED) }}
+      {% else %}
+        {{ card('🧳', t('door_trunk'), t('closed_state'), GREEN) }}
+      {% endif %}
     </div>
   </div>
 
-  <!-- Windows + roof -->
   <div>
     <div class="text-white font-semibold mb-2">🪟 {{ t('windows') }}</div>
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-      {{ state_card('🪟', '🪟', t('win_fl'), vs.windows.fl) }}
-      {{ state_card('🪟', '🪟', t('win_fr'), vs.windows.fr) }}
-      {{ state_card('🪟', '🪟', t('win_rl'), vs.windows.rl) }}
-      {{ state_card('🪟', '🪟', t('win_rr'), vs.windows.rr) }}
-      {{ state_card('🌅', '🌅', t('win_sunshade'), vs.windows.sunshade, open_rgb=AMBER) }}
+      {% if vs.windows.any %}
+        {{ card('🪟', t('windows'), t('open_state'), RED) }}
+      {% else %}
+        {{ card('🪟', t('windows'), t('closed_state'), GREEN) }}
+      {% endif %}
     </div>
   </div>
 
-  <!-- Temperatures -->
   <div>
     <div class="text-white font-semibold mb-2">🌡️ {{ t('temperatures') }}</div>
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-      {{ card('🔋', t('temp_battery'), ('%.0f'|format(vs.temps.battery) ~ '°C') if vs.temps.battery is not none else '—', BLUE) }}
       {{ card('🌡️', t('temp_cabin'), ('%.0f'|format(vs.temps.cabin) ~ '°C') if vs.temps.cabin is not none else '—', CYAN) }}
+      {{ card('🌤️', t('temp_outside'), ('%.0f'|format(vs.temps.outside) ~ '°C') if vs.temps.outside is not none else '—', BLUE) }}
+      {{ card('🔋', t('temp_battery'), ('%.0f'|format(vs.temps.battery) ~ '°C') if vs.temps.battery is not none else '—', GRAY) }}
     </div>
   </div>
-
 </div>
 {% endif %}

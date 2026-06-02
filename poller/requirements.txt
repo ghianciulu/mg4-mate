@@ -1,2 +1,1 @@
-leapmotor-api==0.1.4
 python-dotenv>=1.0.0

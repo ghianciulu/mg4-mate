@@ -1,6 +1,6 @@
 # MG4 Home Assistant Source
 
-This fork can use Home Assistant entities from the SAIC/MG MQTT Gateway instead of the Leapmotor cloud.
+MG4 Mate uses Home Assistant entities from the SAIC/MG MQTT Gateway.
 
 ## Requirements
 
@@ -26,7 +26,7 @@ HA_TOKEN=<long-lived-access-token>
 HA_ENTITY_PREFIX=<mg4-entity-prefix>
 ```
 
-For a Home Assistant add-on running on the same host, prefer the local HTTP address if available. This avoids public DNS and TLS certificate issues:
+For a Home Assistant add-on running on the same host, prefer the local HTTP address if available. This avoids public DNS and HTTPS endpoint issues:
 
 ```text
 HA_URL=http://192.168.x.x:8123
@@ -67,6 +67,6 @@ lock.<prefix>_doors_lock
 
 ## Notes
 
-- The existing SQLite recorder, trips, charges, statistics, and web UI are reused.
+- The SQLite recorder, trips, charges, statistics, and web UI are reused.
 - Trip quality depends on the SAIC gateway refresh cadence. Around 30-40 second updates are enough for useful maps and statistics.
 - Do not commit Home Assistant tokens. Pass them only through add-on options or environment variables.

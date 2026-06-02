@@ -46,7 +46,7 @@ class State(Enum):
     OFFLINE       = "offline"
 
 
-# Default poll cadence (seconds). Polling the Leapmotor cloud does NOT wake/drain the
+# Default poll cadence (seconds). Polling the MG4 cloud does NOT wake/drain the
 # car (it reads the last cloud-reported state), so a steady ~30s parked cadence is safe
 # and keeps Mate independent (no HA/boost needed to catch a trip start). User-tunable.
 DEFAULT_POLL_PARKED  = 30

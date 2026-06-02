@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Statistics — LeapMotor Mate{% endblock %}
+{% block title %}Statistics — MG4 Mate{% endblock %}
 
 {% block content %}
 <div class="mb-6">
@@ -77,16 +77,6 @@
       <span class="stat-value">{{ totals.total_kwh_charged or 0 }}</span>
       <span class="text-slate-400 text-sm">kWh</span>
     </div>
-  </div>
-</div>
-
-<!-- Cloud insights: energy distribution + 6-week consumption trend -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-  <div class="card" hx-get="api/energy-breakdown" hx-trigger="load" hx-swap="innerHTML">
-    <div class="text-center py-4 text-slate-500 text-sm">{{ t('loading') }}…</div>
-  </div>
-  <div class="card" hx-get="api/consumption-rank" hx-trigger="load" hx-swap="innerHTML">
-    <div class="text-center py-4 text-slate-500 text-sm">{{ t('loading') }}…</div>
   </div>
 </div>
 

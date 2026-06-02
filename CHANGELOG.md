@@ -1,41 +1,8 @@
 # Changelog
 
-All notable changes to LeapMotor Mate are documented here.
-This project adheres to [Semantic Versioning](https://semver.org/).
+## 1.0.0
 
-## [1.0.2] — 2026-06-02
-
-### Added
-- **Vehicle page**: new sidebar page with live tyre pressure (per corner, with
-  low-pressure alarms), door and window open/closed states, panoramic roof and
-  battery/cabin temperatures — styled as gradient status cards.
-
-### Fixed
-- `find_car` was calling a non-existent client method; now driven through the
-  registered remote action so it reaches the car.
-- Install docs spell out the exact add-on repository URL.
-
-## [1.0.1] — 2026-06-01
-
-### Fixed
-- **Home Assistant ingress support**: the web UI now works inside the add-on
-  panel. URLs are resolved against the ingress path via `<base href>` (from the
-  `X-Ingress-Path` header) and all template/JS URLs are relative; server
-  redirects carry the ingress prefix. Standalone is unaffected.
-
-## [1.0.0] — 2026-06-01
-
-First public release.
-
-### Added
-- Trip tracking with route map, distance, energy, efficiency and regen.
-- Charge logging with AC/DC detection, energy added, power and distribution chart.
-- Statistics: driving/AC/other energy split and a 6-week consumption trend (Leapmotor cloud).
-- Remote control: lock, windows, trunk, panoramic roof, climate, find car, battery preheat.
-- Two-step setup wizard: app certificate (upload/paste) + account login with EU model/battery auto-detect.
-- Configurable polling (parked/driving), bilingual UI (EN/IT).
-- Home Assistant add-on and standalone Docker deployment.
-
-[1.0.2]: https://github.com/ProtossBlaster/leapmotor-mate/releases/tag/v1.0.2
-[1.0.1]: https://github.com/ProtossBlaster/leapmotor-mate/releases/tag/v1.0.1
-[1.0.0]: https://github.com/ProtossBlaster/leapmotor-mate/releases/tag/v1.0.0
+- Initial MG4 Mate release.
+- Added Home Assistant REST API source for SAIC MQTT Gateway entities.
+- Added local SQLite recording for MG4 positions, trips and charge sessions.
+- Added web UI for overview, trips, charges, vehicle status, settings and statistics.
