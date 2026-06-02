@@ -282,6 +282,48 @@ async def save_prices(request: Request):
     return HTMLResponse('<span style="color:#22c55e;font-size:13px">✓ Saved — costs recalculated</span>')
 
 
+@app.post("/api/history-import", response_class=HTMLResponse)
+async def history_import(request: Request):
+    form = await request.form()
+    try:
+        days = max(1, min(int(form.get("days", 7)), 30))
+    except (TypeError, ValueError):
+        days = 7
+
+    try:
+        import sys as _sys
+        poller_path = Path(__file__).resolve().parents[1] / "poller"
+        if str(poller_path) not in _sys.path:
+            _sys.path.insert(0, str(poller_path))
+        from db import Database
+        from ha_history import HistoryImporter, HomeAssistantHistoryClient
+
+        db = Database(db_reader.DB_PATH)
+        vehicle, _ = db_reader.get_vehicle()
+        prefix = (
+            db_reader.get_setting("ha_entity_prefix")
+            or os.environ.get("HA_ENTITY_PREFIX")
+            or _addon_option("HA_ENTITY_PREFIX")
+            or ((vehicle or {}).get("vin", "").lower())
+        )
+        ha_url = db_reader.get_setting("ha_url") or os.environ.get("HA_URL") or _addon_option("HA_URL")
+        token = db_reader.get_setting("ha_token") or os.environ.get("HA_TOKEN") or _addon_option("HA_TOKEN")
+        vehicle_id = db.ensure_vehicle(prefix.upper(), "MG4")
+        client = HomeAssistantHistoryClient(ha_url, token, prefix)
+        result = HistoryImporter(db, vehicle_id, prefix).import_days(client, days)
+        db.close()
+        return HTMLResponse(
+            "<span style='color:#22c55e;font-size:13px'>"
+            f"✓ Imported {result['positions']} positions, {result['trips']} trips, {result['charges']} charges"
+            "</span>"
+        )
+    except Exception as exc:
+        return HTMLResponse(
+            f"<span style='color:#ef4444;font-size:13px'>Import failed: {exc}</span>",
+            status_code=500,
+        )
+
+
 # ── HTMX partial ─────────────────────────────────────────────────────────────
 
 @app.get("/api/charging-live", response_class=HTMLResponse)

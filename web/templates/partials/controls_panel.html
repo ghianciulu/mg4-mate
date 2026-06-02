@@ -5,12 +5,12 @@
 {% set climate = controls.get('climate') %}
 
 {% macro action_button(label, action, entity_id, value=None, tone='brand') -%}
-<form hx-post="api/controls/action" hx-target="#controls-panel" hx-swap="innerHTML" class="inline">
+<form hx-post="api/controls/action" hx-target="#controls-panel" hx-swap="innerHTML" class="inline-flex">
   <input type="hidden" name="action" value="{{ action }}">
   <input type="hidden" name="entity_id" value="{{ entity_id }}">
   {% if value is not none %}<input type="hidden" name="value" value="{{ value }}">{% endif %}
   <button type="submit"
-          class="px-3 py-2 rounded-lg text-sm font-semibold {% if tone == 'danger' %}bg-red-500 hover:bg-red-400{% else %}bg-brand hover:bg-teal-400{% endif %} text-white transition">
+          class="w-full min-w-16 px-3 py-2 rounded-lg text-sm font-semibold {% if tone == 'danger' %}bg-red-500 hover:bg-red-400{% else %}bg-brand hover:bg-teal-400{% endif %} text-white transition">
     {{ label }}
   </button>
 </form>
@@ -18,16 +18,18 @@
 
 {% macro switch_row(item, label) -%}
 {% if item %}
-<div class="flex items-center justify-between gap-3 bg-slate-900 rounded-lg p-3">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-900 rounded-lg p-3">
   <div>
     <div class="text-white text-sm font-semibold">{{ label }}</div>
     <div class="text-xs text-slate-400">{{ item.state }}</div>
   </div>
-  {% if item.state == 'on' %}
-    {{ action_button('Off', 'switch_off', item.entity_id, tone='danger') }}
-  {% else %}
-    {{ action_button('On', 'switch_on', item.entity_id) }}
-  {% endif %}
+  <div class="grid grid-cols-1 sm:flex">
+    {% if item.state == 'on' %}
+      {{ action_button('Off', 'switch_off', item.entity_id, tone='danger') }}
+    {% else %}
+      {{ action_button('On', 'switch_on', item.entity_id) }}
+    {% endif %}
+  </div>
 </div>
 {% endif %}
 {%- endmacro %}
@@ -70,12 +72,12 @@
       {% for key, label in [('doors', 'Porte'), ('boot', 'Bagagliaio'), ('cable', 'Cavo ricarica')] %}
         {% set item = locks.get(key) %}
         {% if item %}
-        <div class="flex items-center justify-between gap-3 bg-slate-900 rounded-lg p-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-900 rounded-lg p-3">
           <div>
             <div class="text-white text-sm font-semibold">{{ label }}</div>
             <div class="text-xs text-slate-400">{{ item.state }}</div>
           </div>
-          <div class="flex gap-2 flex-wrap justify-end">
+          <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
             {{ action_button('Blocca', 'lock', item.entity_id) }}
             {{ action_button('Sblocca', 'unlock', item.entity_id, tone='danger') }}
           </div>
@@ -89,21 +91,21 @@
     <h2 class="font-semibold text-white mb-4">Clima</h2>
     {% if climate %}
     <div class="bg-slate-900 rounded-lg p-3 mb-3">
-      <div class="flex items-center justify-between gap-3">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div class="text-white text-sm font-semibold">Clima abitacolo</div>
           <div class="text-xs text-slate-400">{{ climate.state }} · target {{ climate.temperature|int }}°C</div>
         </div>
-        <div class="flex gap-2">
+        <div class="grid grid-cols-2 gap-2 sm:flex">
           {{ action_button('On', 'climate_on', climate.entity_id) }}
           {{ action_button('Off', 'climate_off', climate.entity_id, tone='danger') }}
         </div>
       </div>
-      <div class="flex items-center justify-between mt-4">
+      <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mt-4">
         {% set prev_temp = [climate.temperature - climate.step, climate.min_temp]|max %}
         {% set next_temp = [climate.temperature + climate.step, climate.max_temp]|min %}
         {{ action_button('-', 'climate_temp', climate.entity_id, prev_temp) }}
-        <div class="text-2xl font-bold text-white">{{ climate.temperature|int }}°</div>
+        <div class="text-2xl font-bold text-white text-center min-w-16">{{ climate.temperature|int }}°</div>
         {{ action_button('+', 'climate_temp', climate.entity_id, next_temp) }}
       </div>
     </div>
@@ -145,7 +147,7 @@
           <div class="text-white text-sm font-semibold">Limite corrente</div>
           <div class="text-xs text-slate-400">{{ limit.state }}</div>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           {% for option in limit.options %}
           {{ action_button(option, 'select', limit.entity_id, option) }}
           {% endfor %}
@@ -165,7 +167,7 @@
           <div class="text-white text-sm font-semibold">{{ label }}</div>
           <div class="text-xs text-slate-400">{{ seat.state }}</div>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           {% for option in seat.options %}
           {{ action_button(option, 'select', seat.entity_id, option) }}
           {% endfor %}

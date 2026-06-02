@@ -129,5 +129,39 @@
     </form>
   </div>
 
+  <!-- Home Assistant history import -->
+  <div class="card">
+    <h2 class="font-semibold text-white mb-1">Home Assistant history</h2>
+    <p class="text-xs text-slate-400 mb-4">
+      Import existing MG4 history from Home Assistant so trips, charges and statistics do not start from zero.
+    </p>
+
+    <form hx-post="api/history-import"
+          hx-target="#history-import-feedback"
+          hx-swap="innerHTML"
+          class="space-y-4">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {% for days in [1, 7, 14, 30] %}
+        <label class="cursor-pointer">
+          <input type="radio" name="days" value="{{ days }}" class="peer sr-only" {% if days == 7 %}checked{% endif %}>
+          <span class="block text-center rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-300 peer-checked:border-brand peer-checked:text-white peer-checked:bg-teal-950">
+            {{ days }}d
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <div id="history-import-feedback" class="text-xs text-slate-400">
+          Safe to run more than once; existing timestamps are skipped.
+        </div>
+        <button type="submit"
+                class="bg-brand hover:bg-teal-400 text-white rounded-lg px-4 py-2 text-sm font-semibold">
+          Import
+        </button>
+      </div>
+    </form>
+  </div>
+
 </div>
 {% endblock %}

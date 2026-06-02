@@ -203,6 +203,16 @@ class Database:
         return row["id"]
 
     def save_position(self, vehicle_id: int, data) -> None:
+        self.save_position_at(vehicle_id, data, _now_iso())
+
+    def position_exists(self, vehicle_id: int, recorded_at: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM positions WHERE vehicle_id = ? AND recorded_at = ? LIMIT 1",
+            (vehicle_id, recorded_at),
+        ).fetchone()
+        return row is not None
+
+    def save_position_at(self, vehicle_id: int, data, recorded_at: str) -> None:
         self._conn.execute(
             """INSERT INTO positions
                (vehicle_id, recorded_at, latitude, longitude, speed_kmh, odometer_km,
@@ -213,7 +223,7 @@ class Database:
                 remaining_charge_min, charge_voltage_v, charge_current_a)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
-                vehicle_id, _now_iso(),
+                vehicle_id, recorded_at,
                 data.latitude, data.longitude, data.speed_kmh, data.odometer_km,
                 data.soc, data.outside_temp, data.inside_temp, data.climate_target_temp,
                 data.battery_min_temp, data.range_km, data.gear,
