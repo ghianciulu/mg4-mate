@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added Home Assistant-backed MG4 remote controls page.
+- Added controls for locks, climate, defrosters, charging, target SOC, current limit, heated seats and find-my-car when exposed by Home Assistant.
+
 ## 1.0.0
 
 - Initial MG4 Mate release.

@@ -8,7 +8,11 @@ _T: dict[str, dict[str, str]] = {
         "nav_charges":     "Charges",
         "nav_statistics":  "Statistics",
         "nav_vehicle":     "Vehicle",
+        "nav_controls":    "Controls",
         "nav_settings":    "Settings",
+        # Controls page
+        "controls_title":    "Remote controls",
+        "controls_subtitle": "Commands exposed by Home Assistant for your MG4",
         # Vehicle page
         "vehicle_title":     "Vehicle",
         "vehicle_subtitle":  "Live tyres, doors, windows and temperatures",
@@ -226,7 +230,11 @@ _T: dict[str, dict[str, str]] = {
         "nav_charges":     "Ricariche",
         "nav_statistics":  "Statistiche",
         "nav_vehicle":     "Veicolo",
+        "nav_controls":    "Comandi",
         "nav_settings":    "Impostazioni",
+        # Controls page
+        "controls_title":    "Comandi remoti",
+        "controls_subtitle": "Comandi esposti da Home Assistant per la tua MG4",
         # Vehicle page
         "vehicle_title":     "Veicolo",
         "vehicle_subtitle":  "Gomme, porte, finestrini e temperature in tempo reale",

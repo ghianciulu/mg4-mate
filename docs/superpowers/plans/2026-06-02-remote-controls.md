@@ -762,7 +762,7 @@ Run:
 python3 -m unittest tests/test_ha_client.py tests/test_ha_commands.py -v
 python3 -m py_compile poller/ha_client.py poller/vehicle_data.py poller/recorder.py poller/state_machine.py poller/main.py web/main.py web/db_reader.py web/ha_commands.py
 PYTHONPATH=web python3 -c 'import main; print("web import ok")'
-rg -n "QETseWJ8|eyJhbGciOiJIUzI1Ni|HA_TOKEN='" .
+rg -n "HA_TOKEN=|Bearer " .
 ```
 
 Expected:

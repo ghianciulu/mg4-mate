@@ -1,4 +1,5 @@
 """MG4 Mate — web server."""
+import json
 import os
 import sys
 from pathlib import Path
@@ -54,6 +55,49 @@ def _ctx(**kwargs):
         return t("state_parked")
     return {**kwargs, "lang": lang, "t": t,
             "soc_color": _soc_color, "state_label": state_label, "state_color": _state_color}
+
+
+def _addon_option(key: str, default: str = "") -> str:
+    path = os.environ.get("ADDON_OPTIONS_PATH", "/data/options.json")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            value = json.load(fh).get(key)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return default
+    return str(value) if value is not None else default
+
+
+def _ha_command_client():
+    from ha_commands import HomeAssistantCommandClient
+
+    vehicle, _ = db_reader.get_vehicle()
+    ha_url = db_reader.get_setting("ha_url") or os.environ.get("HA_URL") or _addon_option("HA_URL")
+    token = db_reader.get_setting("ha_token") or os.environ.get("HA_TOKEN") or _addon_option("HA_TOKEN")
+    prefix = (
+        db_reader.get_setting("ha_entity_prefix")
+        or os.environ.get("HA_ENTITY_PREFIX")
+        or _addon_option("HA_ENTITY_PREFIX")
+        or (vehicle or {}).get("vin", "").lower()
+    )
+    return HomeAssistantCommandClient(ha_url, token, prefix)
+
+
+def _safe_controls(feedback: dict | None = None) -> dict:
+    try:
+        controls = _ha_command_client().get_controls()
+    except Exception as exc:
+        controls = {
+            "online": False,
+            "error": str(exc),
+            "locks": {},
+            "switches": {},
+            "numbers": {},
+            "selects": {},
+            "climate": None,
+        }
+    if feedback:
+        controls["feedback"] = feedback
+    return controls
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -125,6 +169,58 @@ async def vehicle_page(request: Request):
     vehicle, _ = db_reader.get_vehicle()
     return templates.TemplateResponse(request, "vehicle.html", _ctx(
         page="vehicle", vehicle=vehicle,
+    ))
+
+
+@app.get("/controls", response_class=HTMLResponse)
+async def controls_page(request: Request):
+    vehicle, _ = db_reader.get_vehicle()
+    controls = _safe_controls()
+    return templates.TemplateResponse(request, "controls.html", _ctx(
+        page="controls", vehicle=vehicle, controls=controls, feedback=None,
+    ))
+
+
+@app.get("/api/controls", response_class=HTMLResponse)
+async def controls_panel(request: Request):
+    controls = _safe_controls()
+    return templates.TemplateResponse(request, "partials/controls_panel.html", _ctx(
+        controls=controls, feedback=None,
+    ))
+
+
+@app.post("/api/controls/action", response_class=HTMLResponse)
+async def controls_action(request: Request):
+    form = await request.form()
+    action = str(form.get("action", ""))
+    entity_id = str(form.get("entity_id", ""))
+    client = _ha_command_client()
+    feedback = {"ok": True, "message": "Command sent"}
+    try:
+        if action == "lock":
+            client.lock_entity(entity_id)
+        elif action == "unlock":
+            client.unlock_entity(entity_id)
+        elif action == "switch_on":
+            client.turn_on_switch(entity_id)
+        elif action == "switch_off":
+            client.turn_off_switch(entity_id)
+        elif action == "climate_on":
+            client.turn_on_climate(entity_id)
+        elif action == "climate_off":
+            client.turn_off_climate(entity_id)
+        elif action == "climate_temp":
+            client.set_climate_temperature(entity_id, float(form.get("value")))
+        elif action == "number":
+            client.set_number(entity_id, float(form.get("value")))
+        elif action == "select":
+            client.select_option(entity_id, str(form.get("value", "")))
+        else:
+            raise ValueError(f"Unsupported action: {action}")
+    except Exception as exc:
+        feedback = {"ok": False, "message": str(exc)}
+    return templates.TemplateResponse(request, "partials/controls_panel.html", _ctx(
+        controls=_safe_controls(feedback), feedback=feedback,
     ))
 
 
