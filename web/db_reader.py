@@ -270,8 +270,7 @@ def get_trips_grouped() -> list[dict]:
         for mo_node in yr_node["months"].values():
             if mo_node["_wd"] > 0:
                 mo_node["avg_eff"] = round(mo_node["_ws"] / mo_node["_wd"], 1)
-            # Convert days OrderedDict to list for template compatibility
-            mo_node["days"] = list(mo_node["days"].values())
+            # Keep days as OrderedDict — template iterates .values()
 
     return list(years.values())
 
