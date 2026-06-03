@@ -73,6 +73,28 @@
     </form>
   </div>
 
+  <!-- Trip merge gap -->
+  <div class="card">
+    <h2 class="font-semibold text-white mb-1">{{ t('trip_merge_section') }}</h2>
+    <div class="text-xs text-slate-400 mb-4">{{ t('trip_merge_desc') }}</div>
+    <form hx-post="api/settings/trip-merge" hx-trigger="change" hx-target="#merge-result" hx-swap="innerHTML" class="space-y-5">
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-white">{{ t('trip_merge_gap_label') }}</span>
+          <span class="font-bold text-brand"><span id="tmg-val">{{ settings.get('trip_merge_gap_min', '5') }}</span> min</span>
+        </div>
+        <input type="range" name="trip_merge_gap_min" min="0" max="30" step="1"
+               value="{{ settings.get('trip_merge_gap_min', '5') }}"
+               oninput="document.getElementById('tmg-val').textContent=this.value"
+               class="w-full accent-brand cursor-pointer">
+        <div class="flex justify-between text-[10px] text-slate-600 mt-1">
+          <span>{{ t('disabled') }}</span><span>30 min</span>
+        </div>
+      </div>
+      <div id="merge-result" class="text-xs"></div>
+    </form>
+  </div>
+
   <!-- Charge prices -->
   <div class="card">
     <h2 class="font-semibold text-white mb-1">{{ t('charge_prices') }}</h2>

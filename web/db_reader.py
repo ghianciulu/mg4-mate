@@ -504,6 +504,74 @@ def get_charge_stats() -> dict:
     return dict(row) if row else {}
 
 
+def merge_trips(keep_id: int, drop_id: int) -> dict:
+    """Merge drop_id into keep_id (keep_id must be the earlier trip). Returns updated trip."""
+    from datetime import datetime
+    db = _conn_rw()
+    keep = db.execute("SELECT * FROM trips WHERE id=?", (keep_id,)).fetchone()
+    drop = db.execute("SELECT * FROM trips WHERE id=?", (drop_id,)).fetchone()
+    if not keep or not drop:
+        return {}
+
+    k = dict(keep)
+    d = dict(drop)
+
+    new_distance = round((k.get('distance_km') or 0) + (d.get('distance_km') or 0), 2)
+    new_regen    = round((k.get('regen_kwh') or 0)   + (d.get('regen_kwh') or 0),   3)
+
+    # Duration from start of keep to end of drop (includes the gap time)
+    try:
+        t_start = datetime.fromisoformat(k['started_at'].replace(' ', 'T').rstrip('Z'))
+        t_end   = datetime.fromisoformat(d['ended_at'].replace(' ', 'T').rstrip('Z'))
+        new_duration = round((t_end - t_start).total_seconds() / 60, 1)
+    except Exception:
+        new_duration = (k.get('duration_min') or 0) + (d.get('duration_min') or 0)
+
+    # Efficiency: distance-weighted average
+    k_eff, k_dist = k.get('efficiency_kwh_100km'), k.get('distance_km') or 0
+    d_eff, d_dist = d.get('efficiency_kwh_100km'), d.get('distance_km') or 0
+    if k_eff and d_eff and (k_dist + d_dist) > 0:
+        new_eff = round((k_eff * k_dist + d_eff * d_dist) / (k_dist + d_dist), 1)
+    elif k_eff:
+        new_eff = k_eff
+    else:
+        new_eff = d_eff
+
+    db.execute("""
+        UPDATE trips
+        SET ended_at=?, end_soc=?, end_odometer_km=?,
+            distance_km=?, duration_min=?, efficiency_kwh_100km=?, regen_kwh=?
+        WHERE id=?
+    """, (d['ended_at'], d['end_soc'], d['end_odometer_km'],
+          new_distance, new_duration, new_eff, new_regen, keep_id))
+
+    db.execute("UPDATE trip_positions SET trip_id=? WHERE trip_id=?", (keep_id, drop_id))
+    db.execute("DELETE FROM trips WHERE id=?", (drop_id,))
+    db.commit()
+
+    row = db.execute("SELECT * FROM trips WHERE id=?", (keep_id,)).fetchone()
+    return dict(row) if row else {}
+
+
+def get_adjacent_trips(trip_id: int) -> tuple:
+    """Returns (prev_trip, next_trip) — trips immediately before/after trip_id."""
+    db = _get()
+    trip = db.execute("SELECT started_at, ended_at FROM trips WHERE id=?", (trip_id,)).fetchone()
+    if not trip:
+        return None, None
+    prev = db.execute(
+        """SELECT * FROM trips WHERE ended_at IS NOT NULL AND ended_at < ?
+           ORDER BY ended_at DESC LIMIT 1""",
+        (trip['started_at'],)
+    ).fetchone()
+    nxt = db.execute(
+        """SELECT * FROM trips WHERE started_at IS NOT NULL AND started_at > ?
+           ORDER BY started_at ASC LIMIT 1""",
+        (trip['ended_at'] or trip['started_at'],)
+    ).fetchone()
+    return (dict(prev) if prev else None), (dict(nxt) if nxt else None)
+
+
 def get_ac_dc_stats() -> dict:
     """Count + energy of AC vs DC charge sessions. DC = charge_type 'DC', or (when not
     set) a measured peak power above 11 kW (AC tops out at ~11 kW; DC is faster)."""

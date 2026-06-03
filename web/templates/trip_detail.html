@@ -60,6 +60,39 @@
         <span class="text-slate-400">{{ t('gps_points') }}</span>
         <span class="text-white font-medium">{{ trip.positions|length }}</span>
       </div>
+      <div class="pt-3 border-t border-slate-700/50 space-y-2">
+        {% if prev_trip %}
+        <form hx-post="../api/trips/{{ trip.id }}/merge"
+              hx-target="#merge-feedback"
+              hx-swap="innerHTML"
+              onsubmit="return confirm('{{ t('merge_confirm') }}')">
+          <input type="hidden" name="target_id" value="{{ prev_trip.id }}">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-400">← {{ t('merge_with_prev') }}</div>
+              <div class="text-xs text-slate-600">{{ prev_trip.started_at[11:16] if prev_trip.started_at else '?' }} · {{ "%.1f"|format(prev_trip.distance_km or 0) }} km</div>
+            </div>
+            <button type="submit" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">{{ t('merge_trips') }}</button>
+          </div>
+        </form>
+        {% endif %}
+        {% if next_trip %}
+        <form hx-post="../api/trips/{{ trip.id }}/merge"
+              hx-target="#merge-feedback"
+              hx-swap="innerHTML"
+              onsubmit="return confirm('{{ t('merge_confirm') }}')">
+          <input type="hidden" name="target_id" value="{{ next_trip.id }}">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-400">→ {{ t('merge_with_next') }}</div>
+              <div class="text-xs text-slate-600">{{ next_trip.started_at[11:16] if next_trip.started_at else '?' }} · {{ "%.1f"|format(next_trip.distance_km or 0) }} km</div>
+            </div>
+            <button type="submit" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">{{ t('merge_trips') }}</button>
+          </div>
+        </form>
+        {% endif %}
+        <div id="merge-feedback" class="text-xs"></div>
+      </div>
     </div>
   </div>
 

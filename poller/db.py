@@ -539,6 +539,36 @@ class Database:
             (vehicle_id,),
         ).fetchone()
 
+    def get_recent_ended_trip(self, vehicle_id: int, within_seconds: int):
+        """Return the most recently ended trip if it ended within `within_seconds` ago."""
+        from datetime import datetime, timedelta, timezone
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=within_seconds)).strftime('%Y-%m-%d %H:%M:%S')
+        row = self._conn.execute(
+            """SELECT * FROM trips
+               WHERE vehicle_id=? AND ended_at IS NOT NULL AND ended_at >= ?
+               ORDER BY ended_at DESC LIMIT 1""",
+            (vehicle_id, cutoff)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def reopen_trip(self, trip_id: int) -> None:
+        """Clear finalization fields so the trip is open again for accumulation."""
+        self._conn.execute(
+            """UPDATE trips
+               SET ended_at=NULL, end_soc=NULL, end_odometer_km=NULL,
+                   duration_min=NULL, efficiency_kwh_100km=NULL
+               WHERE id=?""",
+            (trip_id,)
+        )
+        self._conn.commit()
+
+    def get_setting_value(self, key: str, default: str = "") -> str:
+        """Read a settings value (thin wrapper used by recorder)."""
+        row = self._conn.execute(
+            "SELECT value FROM settings WHERE key=?", (key,)
+        ).fetchone()
+        return row["value"] if row else default
+
     def update_charge_max_power(self, charge_id: int, max_power_kw: float) -> None:
         """Persist the running peak power so it survives a poller restart mid-charge."""
         self._conn.execute(

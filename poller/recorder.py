@@ -110,7 +110,15 @@ class Recorder:
 
         if to == State.DRIVING:
             self._regen_kwh = 0.0
-            self._active_trip_id = self._db.create_trip(self._vehicle_id, data)
+            gap_min = int(self._db.get_setting_value('trip_merge_gap_min', '5'))
+            recent = self._db.get_recent_ended_trip(self._vehicle_id, gap_min * 60) if gap_min > 0 else None
+            if recent:
+                self._db.reopen_trip(recent['id'])
+                self._active_trip_id = recent['id']
+                self._regen_kwh = recent.get('regen_kwh') or 0.0
+                log.info("Auto-merged new trip into recent trip #%d (gap < %d min)", recent['id'], gap_min)
+            else:
+                self._active_trip_id = self._db.create_trip(self._vehicle_id, data)
 
         elif frm == State.DRIVING and to in _PARKED_STATES:
             if self._active_trip_id and data:

@@ -132,8 +132,10 @@ async def trip_detail(request: Request, trip_id: int):
     trip = db_reader.get_trip_detail(trip_id)
     if not trip:
         return RedirectResponse(request.headers.get("x-ingress-path", "") + "/trips")
+    prev_trip, next_trip = db_reader.get_adjacent_trips(trip_id)
     return templates.TemplateResponse(request, "trip_detail.html", _ctx(
         page="trips", vehicle=vehicle, trip=trip,
+        prev_trip=prev_trip, next_trip=next_trip,
     ))
 
 
@@ -339,6 +341,34 @@ async def status_card(request: Request):
     return templates.TemplateResponse(request, "partials/status_card.html", _ctx(
         status=status, vehicle=vehicle,
     ))
+
+
+@app.post("/api/settings/trip-merge", response_class=HTMLResponse)
+async def save_trip_merge(request: Request):
+    form = await request.form()
+    val = int(form.get("trip_merge_gap_min", 5))
+    val = max(0, min(30, val))
+    db_reader.set_setting("trip_merge_gap_min", str(val))
+    lang = db_reader.get_language()
+    t = i18n.get_t(lang)
+    return HTMLResponse(f'<span class="text-green-400">{t("saved")}</span>')
+
+
+@app.post("/api/trips/{trip_id}/merge", response_class=HTMLResponse)
+async def merge_trip(request: Request, trip_id: int):
+    form = await request.form()
+    target_id = int(form.get("target_id", 0))
+    if not target_id:
+        return HTMLResponse('<span class="text-red-400">Invalid request</span>')
+    # Always keep the earlier trip
+    keep_id = min(trip_id, target_id)
+    drop_id = max(trip_id, target_id)
+    result = db_reader.merge_trips(keep_id, drop_id)
+    if not result:
+        return HTMLResponse('<span class="text-red-400">Merge failed</span>')
+    return HTMLResponse(
+        f'<script>window.location.href="trips/{keep_id}"</script>'
+    )
 
 
 @app.post("/api/poll-settings", response_class=HTMLResponse)

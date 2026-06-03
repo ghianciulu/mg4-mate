@@ -219,6 +219,16 @@ _T: dict[str, dict[str, str]] = {
         "ac_desc":              "Public AC stations up to 22 kW",
         "fast_desc":            "DC fast chargers up to 100 kW",
         "hpc_desc":             "High Power Charging 150 kW+",
+        # Trip merging
+        "trip_merge_section":   "Trip merging",
+        "trip_merge_desc":      "Automatically resume a recent trip when you start driving again within the gap window. Set to 0 to disable.",
+        "trip_merge_gap_label": "Merge gap",
+        "disabled":             "Disabled",
+        "merge_trips":          "Merge",
+        "merge_with_prev":      "Merge with previous trip",
+        "merge_with_next":      "Merge with next trip",
+        "merge_confirm":        "Merge these two trips into one? This cannot be undone.",
+        "saved":                "Saved",
         # Setup
         "lang_en":              "English",
         "lang_it":              "Italiano",
@@ -441,6 +451,16 @@ _T: dict[str, dict[str, str]] = {
         "ac_desc":              "Stazioni AC pubbliche fino a 22 kW",
         "fast_desc":            "DC rapido fino a 100 kW",
         "hpc_desc":             "High Power Charging 150 kW+",
+        # Trip merging
+        "trip_merge_section":   "Unione viaggi",
+        "trip_merge_desc":      "Riprende automaticamente un viaggio recente se riparti entro la finestra configurata. 0 = disabilitato.",
+        "trip_merge_gap_label": "Finestra di unione",
+        "disabled":             "Disabilitato",
+        "merge_trips":          "Unisci",
+        "merge_with_prev":      "Unisci al viaggio precedente",
+        "merge_with_next":      "Unisci al viaggio successivo",
+        "merge_confirm":        "Unire i due viaggi? Questa operazione non è reversibile.",
+        "saved":                "Salvato",
         # Setup
         "lang_en":              "English",
         "lang_it":              "Italiano",
