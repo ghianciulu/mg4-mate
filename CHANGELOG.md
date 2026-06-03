@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.3.1
+
 - Expanded vehicle page: individual door states, bonnet, 12V aux battery, lights on/off, compass heading — fetched from HA and stored in positions table.
 - Added tyre pressure sensors (FL/FR/RL/RR) with SVG top-down car visualization; wheels colour-coded green/amber/red by pressure; low-pressure warning banner.
 
