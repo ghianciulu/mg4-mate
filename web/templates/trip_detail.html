@@ -62,10 +62,8 @@
       </div>
       <div class="pt-3 border-t border-slate-700/50 space-y-2">
         {% if prev_trip %}
-        <form hx-post="../api/trips/{{ trip.id }}/merge"
-              hx-target="#merge-feedback"
-              hx-swap="innerHTML"
-              onsubmit="return confirm('{{ t('merge_confirm') }}')">
+        <form hx-post="/api/trips/{{ trip.id }}/merge"
+              hx-confirm="{{ t('merge_confirm') }}">
           <input type="hidden" name="target_id" value="{{ prev_trip.id }}">
           <div class="flex items-center justify-between">
             <div>
@@ -77,10 +75,8 @@
         </form>
         {% endif %}
         {% if next_trip %}
-        <form hx-post="../api/trips/{{ trip.id }}/merge"
-              hx-target="#merge-feedback"
-              hx-swap="innerHTML"
-              onsubmit="return confirm('{{ t('merge_confirm') }}')">
+        <form hx-post="/api/trips/{{ trip.id }}/merge"
+              hx-confirm="{{ t('merge_confirm') }}">
           <input type="hidden" name="target_id" value="{{ next_trip.id }}">
           <div class="flex items-center justify-between">
             <div>
