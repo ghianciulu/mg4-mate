@@ -232,12 +232,29 @@ async def vehicle_status_api(request: Request):
     vs = None
     if status:
         vs = {
+            "soc": status.get("soc"),
+            "range_km": status.get("range_km"),
+            "odometer_km": status.get("odometer_km"),
+            "gear": status.get("gear"),
+            "charging": bool(status.get("charging")),
+            "plug_connected": bool(status.get("plug_connected")),
+            "remaining_charge_min": status.get("remaining_charge_min"),
+            "is_locked": bool(status.get("is_locked")),
             "doors": {
+                "fl": bool(status.get("door_fl_open")),
+                "fr": bool(status.get("door_fr_open")),
+                "rl": bool(status.get("door_rl_open")),
+                "rr": bool(status.get("door_rr_open")),
                 "trunk": bool(status.get("trunk_open")),
+                "bonnet": bool(status.get("bonnet_open")),
             },
             "windows": {
                 "any": bool(status.get("windows_open")),
+                "sunshade": bool(status.get("sunshade_open")),
             },
+            "lights_any": bool(status.get("lights_any")),
+            "heading_deg": status.get("heading_deg"),
+            "aux_battery_v": status.get("aux_battery_v"),
             "temps": {
                 "cabin": status.get("inside_temp"),
                 "outside": status.get("outside_temp"),

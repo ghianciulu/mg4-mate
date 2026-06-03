@@ -2,48 +2,115 @@
   <div class="card text-slate-400 text-sm">{{ t('no_data') }} — {{ t('check_poller') }}</div>
 {% else %}
 
-{% macro card(icon, label, value, rgb) %}
-<div style="border-radius:18px;background:linear-gradient(135deg, rgba({{ rgb }},0.16), rgba({{ rgb }},0.04));border:1px solid rgba({{ rgb }},0.24);padding:14px;display:flex;align-items:center;gap:12px">
-  <div style="width:42px;height:42px;border-radius:12px;background:rgba({{ rgb }},0.18);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">{{ icon }}</div>
+{% macro stat_card(icon, label, value, rgb, small=false) %}
+<div style="border-radius:16px;background:linear-gradient(135deg,rgba({{ rgb }},0.14),rgba({{ rgb }},0.04));border:1px solid rgba({{ rgb }},0.22);padding:12px 14px;display:flex;align-items:center;gap:10px">
+  <div style="width:38px;height:38px;border-radius:10px;background:rgba({{ rgb }},0.16);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">{{ icon }}</div>
   <div style="min-width:0">
-    <div style="font-size:12px;color:#94a3b8;line-height:1.2">{{ label }}</div>
-    <div style="font-size:16px;font-weight:700;color:#f1f5f9;line-height:1.35">{{ value }}</div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.2">{{ label }}</div>
+    <div style="font-size:{% if small %}14px{% else %}15px{% endif %};font-weight:700;color:#f1f5f9;line-height:1.3">{{ value }}</div>
   </div>
 </div>
 {% endmacro %}
 
-{% set GREEN='76,175,80' %}{% set RED='244,67,54' %}{% set BLUE='33,150,243' %}{% set CYAN='0,188,212' %}{% set GRAY='100,116,139' %}
+{% macro door_chip(label, open) %}
+<div style="display:flex;align-items:center;gap:6px;background:{% if open %}rgba(244,67,54,0.12){% else %}rgba(76,175,80,0.08){% endif %};border:1px solid {% if open %}rgba(244,67,54,0.3){% else %}rgba(76,175,80,0.2){% endif %};border-radius:10px;padding:7px 10px">
+  <span style="font-size:13px">{% if open %}🔴{% else %}🟢{% endif %}</span>
+  <span style="font-size:12px;color:{% if open %}#f87171{% else %}#86efac{% endif %};font-weight:600">{{ label }}</span>
+  <span style="font-size:11px;color:{% if open %}#f87171{% else %}#4ade80{% endif %};margin-left:auto">{% if open %}{{ t('open_state') }}{% else %}{{ t('closed_state') }}{% endif %}</span>
+</div>
+{% endmacro %}
 
-<div class="space-y-5">
+{% set GREEN='76,175,80' %}
+{% set RED='244,67,54' %}
+{% set BLUE='33,150,243' %}
+{% set CYAN='0,188,212' %}
+{% set GRAY='100,116,139' %}
+{% set YELLOW='251,191,36' %}
+{% set PURPLE='168,85,247' %}
+{% set ORANGE='251,146,60' %}
+
+<div class="space-y-6">
+
+  <!-- Battery & Range -->
   <div>
-    <div class="text-white font-semibold mb-2">🚪 {{ t('doors') }}</div>
-    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-      {% if vs.doors.trunk %}
-        {{ card('🧳', t('door_trunk'), t('open_state'), RED) }}
+    <div class="text-white font-semibold mb-3">⚡ {{ t('battery_range') }}</div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {{ stat_card('🔋', 'SOC', ('%.1f'|format(vs.soc) ~ '%') if vs.soc is not none else '—', GREEN if (vs.soc or 0) >= 50 else ORANGE if (vs.soc or 0) >= 20 else RED) }}
+      {{ stat_card('🗺️', t('range'), ('%.0f km'|format(vs.range_km)) if vs.range_km else '—', CYAN) }}
+      {{ stat_card('📏', t('odometer'), ('%.0f km'|format(vs.odometer_km)) if vs.odometer_km else '—', GRAY) }}
+      {% if vs.aux_battery_v %}
+        {{ stat_card('🔌', t('aux_battery'), ('%.1f V'|format(vs.aux_battery_v)), YELLOW if vs.aux_battery_v >= 12.0 else RED) }}
       {% else %}
-        {{ card('🧳', t('door_trunk'), t('closed_state'), GREEN) }}
+        {{ stat_card('🔌', t('aux_battery'), '—', GRAY) }}
       {% endif %}
     </div>
   </div>
 
+  <!-- Charging status (only when plugged or charging) -->
+  {% if vs.plug_connected or vs.charging %}
   <div>
-    <div class="text-white font-semibold mb-2">🪟 {{ t('windows') }}</div>
+    <div class="text-white font-semibold mb-3">🔌 {{ t('charging_status') }}</div>
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-      {% if vs.windows.any %}
-        {{ card('🪟', t('windows'), t('open_state'), RED) }}
-      {% else %}
-        {{ card('🪟', t('windows'), t('closed_state'), GREEN) }}
+      {{ stat_card('🔌', t('plug'), t('connected') if vs.plug_connected else t('disconnected'), GREEN if vs.plug_connected else GRAY) }}
+      {{ stat_card('⚡', t('charging_active'), t('yes') if vs.charging else t('no'), YELLOW if vs.charging else GRAY) }}
+      {% if vs.remaining_charge_min %}
+        {{ stat_card('⏱', t('remaining_time'), ('%dh %02dm'|format(vs.remaining_charge_min // 60, vs.remaining_charge_min % 60)) if vs.remaining_charge_min >= 60 else ('%d min'|format(vs.remaining_charge_min)), CYAN) }}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Doors & Locks -->
+  <div>
+    <div class="text-white font-semibold mb-3">🚪 {{ t('doors') }} · <span class="text-sm font-normal {% if vs.is_locked %}text-green-400{% else %}text-red-400{% endif %}">{% if vs.is_locked %}🔒 {{ t('locked') }}{% else %}🔓 {{ t('unlocked') }}{% endif %}</span></div>
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+      {{ door_chip(t('bonnet'), vs.doors.bonnet) }}
+      {{ door_chip(t('door_driver'), vs.doors.fl) }}
+      {{ door_chip(t('door_passenger'), vs.doors.fr) }}
+      {{ door_chip(t('door_rear_left'), vs.doors.rl) }}
+      {{ door_chip(t('door_rear_right'), vs.doors.rr) }}
+      {{ door_chip(t('door_trunk'), vs.doors.trunk) }}
+    </div>
+  </div>
+
+  <!-- Windows -->
+  <div>
+    <div class="text-white font-semibold mb-3">🪟 {{ t('windows') }}</div>
+    <div class="grid grid-cols-2 gap-2">
+      {{ door_chip(t('windows'), vs.windows.any) }}
+      {{ door_chip(t('win_sunshade'), vs.windows.sunshade) }}
+    </div>
+  </div>
+
+  <!-- Lights & Heading -->
+  <div>
+    <div class="text-white font-semibold mb-3">💡 {{ t('lights_heading') }}</div>
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      {{ stat_card('💡', t('lights'), t('on') if vs.lights_any else t('off'), YELLOW if vs.lights_any else GRAY) }}
+      {% if vs.heading_deg is not none %}
+        {% set hdg = vs.heading_deg | int %}
+        {% if hdg < 23 or hdg >= 338 %}{% set dir = 'N' %}
+        {% elif hdg < 68 %}{% set dir = 'NE' %}
+        {% elif hdg < 113 %}{% set dir = 'E' %}
+        {% elif hdg < 158 %}{% set dir = 'SE' %}
+        {% elif hdg < 203 %}{% set dir = 'S' %}
+        {% elif hdg < 248 %}{% set dir = 'SW' %}
+        {% elif hdg < 293 %}{% set dir = 'W' %}
+        {% else %}{% set dir = 'NW' %}{% endif %}
+        {{ stat_card('🧭', t('heading'), hdg|string ~ '° ' ~ dir, BLUE) }}
       {% endif %}
     </div>
   </div>
 
+  <!-- Temperatures -->
   <div>
-    <div class="text-white font-semibold mb-2">🌡️ {{ t('temperatures') }}</div>
+    <div class="text-white font-semibold mb-3">🌡️ {{ t('temperatures') }}</div>
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-      {{ card('🌡️', t('temp_cabin'), ('%.0f'|format(vs.temps.cabin) ~ '°C') if vs.temps.cabin is not none else '—', CYAN) }}
-      {{ card('🌤️', t('temp_outside'), ('%.0f'|format(vs.temps.outside) ~ '°C') if vs.temps.outside is not none else '—', BLUE) }}
-      {{ card('🔋', t('temp_battery'), ('%.0f'|format(vs.temps.battery) ~ '°C') if vs.temps.battery is not none else '—', GRAY) }}
+      {{ stat_card('🌡️', t('temp_cabin'), ('%.0f°C'|format(vs.temps.cabin)) if vs.temps.cabin is not none else '—', CYAN) }}
+      {{ stat_card('🌤️', t('temp_outside'), ('%.0f°C'|format(vs.temps.outside)) if vs.temps.outside is not none else '—', BLUE) }}
+      {{ stat_card('🔋', t('temp_battery'), ('%.0f°C'|format(vs.temps.battery)) if vs.temps.battery is not none else '—', GRAY) }}
     </div>
   </div>
+
 </div>
 {% endif %}

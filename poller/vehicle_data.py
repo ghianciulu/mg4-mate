@@ -33,6 +33,16 @@ class VehicleData:
     remaining_charge_min: int
     charge_voltage_v: float
     charge_current_a: float
+    door_fl_open: bool = False
+    door_fr_open: bool = False
+    door_rl_open: bool = False
+    door_rr_open: bool = False
+    bonnet_open: bool = False
+    aux_battery_v: float = 0.0
+    lights_dipped: bool = False
+    lights_main: bool = False
+    lights_side: bool = False
+    heading_deg: float = 0.0
 
     def fingerprint(self) -> tuple:
         """Compact snapshot of signals that indicate car activity."""

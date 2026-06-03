@@ -52,7 +52,18 @@ CREATE TABLE IF NOT EXISTS positions (
     trunk_open       INTEGER DEFAULT NULL,
     windows_open     INTEGER DEFAULT NULL,
     sunshade_open    INTEGER DEFAULT NULL,
-    plug_connected   INTEGER DEFAULT NULL
+    plug_connected   INTEGER DEFAULT NULL,
+    remaining_charge_min INTEGER DEFAULT NULL,
+    charge_voltage_v REAL DEFAULT NULL,
+    charge_current_a REAL DEFAULT NULL,
+    door_fl_open         INTEGER DEFAULT NULL,
+    door_fr_open         INTEGER DEFAULT NULL,
+    door_rl_open         INTEGER DEFAULT NULL,
+    door_rr_open         INTEGER DEFAULT NULL,
+    bonnet_open          INTEGER DEFAULT NULL,
+    aux_battery_v        REAL DEFAULT NULL,
+    lights_any           INTEGER DEFAULT NULL,
+    heading_deg          REAL DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS trips (
@@ -163,6 +174,18 @@ class Database:
             self._conn.execute("ALTER TABLE positions ADD COLUMN charge_voltage_v REAL DEFAULT NULL")
         if "charge_current_a" not in cols:
             self._conn.execute("ALTER TABLE positions ADD COLUMN charge_current_a REAL DEFAULT NULL")
+        for col, defn in [
+            ("door_fl_open", "INTEGER DEFAULT NULL"),
+            ("door_fr_open", "INTEGER DEFAULT NULL"),
+            ("door_rl_open", "INTEGER DEFAULT NULL"),
+            ("door_rr_open", "INTEGER DEFAULT NULL"),
+            ("bonnet_open", "INTEGER DEFAULT NULL"),
+            ("aux_battery_v", "REAL DEFAULT NULL"),
+            ("lights_any", "INTEGER DEFAULT NULL"),
+            ("heading_deg", "REAL DEFAULT NULL"),
+        ]:
+            if col not in cols:
+                self._conn.execute(f"ALTER TABLE positions ADD COLUMN {col} {defn}")
         self._conn.commit()
         log.info("Database ready: %s", path)
 
@@ -220,8 +243,10 @@ class Database:
                 range_km, gear, charging, is_locked, climate_on,
                 climate_cooling, climate_heating, climate_defrost,
                 trunk_open, windows_open, sunshade_open, plug_connected,
-                remaining_charge_min, charge_voltage_v, charge_current_a)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                remaining_charge_min, charge_voltage_v, charge_current_a,
+                door_fl_open, door_fr_open, door_rl_open, door_rr_open,
+                bonnet_open, aux_battery_v, lights_any, heading_deg)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 vehicle_id, recorded_at,
                 data.latitude, data.longitude, data.speed_kmh, data.odometer_km,
@@ -240,6 +265,14 @@ class Database:
                 data.remaining_charge_min or None,
                 data.charge_voltage_v or None,
                 data.charge_current_a or None,
+                1 if data.door_fl_open else 0,
+                1 if data.door_fr_open else 0,
+                1 if data.door_rl_open else 0,
+                1 if data.door_rr_open else 0,
+                1 if data.bonnet_open else 0,
+                data.aux_battery_v or None,
+                1 if (data.lights_dipped or data.lights_main or data.lights_side) else 0,
+                data.heading_deg or None,
             ),
         )
         self._conn.commit()
