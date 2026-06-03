@@ -4,6 +4,8 @@
 
 ## 1.2.3
 
+## 1.2.3
+
 - Fixed trip merge: stale WAL read caused merged trips to appear unchanged after redirect.
 - Fixed trip merge: added hx-swap="none" to merge forms to prevent HTMX swap interference.
 - Added 9 unit tests covering merge correctness and WAL cache invalidation.
