@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.3.2
+
 - Replaced battery temperature with outside temperature on overview status card; AC target temperature kept.
 
 ## 1.3.1
