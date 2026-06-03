@@ -9,42 +9,13 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-  <!-- Status card (auto-refresh every 30s via HTMX) -->
-  <div class="card lg:col-span-1"
+  <!-- Status card + map (auto-refresh every 30s via HTMX) -->
+  <div class="card lg:col-span-3"
        id="status-card"
        hx-get="api/status-card"
        hx-trigger="every 30s"
        hx-swap="innerHTML">
     {% include "partials/status_card.html" %}
-  </div>
-
-  <!-- Map -->
-  <div class="card lg:col-span-2 min-h-64">
-    {% if status and status.latitude and status.longitude %}
-    <div class="stat-label mb-3">{{ t('last_position') }}</div>
-    <div id="map" class="w-full rounded-lg" style="height:280px"></div>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-      const map = L.map('map').setView([{{ status.latitude }}, {{ status.longitude }}], 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
-      const icon = L.divIcon({
-        html: '<div style="background:#14b8a6;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 0 6px rgba(0,0,0,0.5)"></div>',
-        iconSize: [14,14], iconAnchor: [7,7]
-      });
-      L.marker([{{ status.latitude }}, {{ status.longitude }}], {icon}).addTo(map)
-        .bindPopup('{{ vehicle.car_type if vehicle else "MG4" }} — {{ status.last_seen }}').openPopup();
-    </script>
-    {% else %}
-    <div class="flex items-center justify-center h-64 text-slate-500">
-      <div class="text-center">
-        <div class="text-4xl mb-2">🗺</div>
-        <div>{{ t('last_position') }}</div>
-      </div>
-    </div>
-    {% endif %}
   </div>
 
   <!-- Recent trips -->

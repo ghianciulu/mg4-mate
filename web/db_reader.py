@@ -27,12 +27,6 @@ def auto_location_type(max_power_kw: float) -> str:
     return "HPC"
 
 
-def _conn(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 DB_PATH = os.environ.get("DB_PATH", "mg4_mate.db")
 
 _ro_conn: sqlite3.Connection | None = None
@@ -189,55 +183,95 @@ def get_trips(limit: int = 500) -> list[dict]:
 
 def get_trips_grouped() -> list[dict]:
     """Return trips nested as year → month → day for the sidebar tree view."""
-    trips = get_trips()
     from collections import OrderedDict
+    db = _get()
 
-    def _node(label):
-        return {"label": label, "km": 0, "count": 0,
-                "_eff_wsum": 0.0, "_eff_wdist": 0.0, "avg_eff": None}
+    # Aggregate counts/km/efficiency per day in SQL
+    agg_rows = db.execute("""
+        SELECT
+            strftime('%Y', started_at)       AS yr,
+            strftime('%Y-%m', started_at)    AS mo_key,
+            date(started_at)                 AS day_key,
+            COUNT(*)                         AS count,
+            ROUND(SUM(distance_km), 1)       AS km,
+            ROUND(
+                SUM(distance_km * COALESCE(efficiency_kwh_100km,0)) /
+                NULLIF(SUM(CASE WHEN efficiency_kwh_100km IS NOT NULL THEN distance_km END), 0),
+                1
+            ) AS avg_eff
+        FROM trips
+        WHERE ended_at IS NOT NULL
+        GROUP BY yr, mo_key, day_key
+        ORDER BY started_at DESC
+    """).fetchall()
 
-    def _add(node, km, eff):
-        node["km"]    = round(node["km"] + km, 1)
-        node["count"] += 1
-        if eff and km > 0:
-            node["_eff_wsum"]  += km * eff
-            node["_eff_wdist"] += km
-
-    def _finalize(node):
-        if node["_eff_wdist"] > 0:
-            node["avg_eff"] = round(node["_eff_wsum"] / node["_eff_wdist"], 1)
-
-    years: dict = OrderedDict()
-    for t in trips:
+    # Individual trip rows for day-level trip lists
+    trip_rows = db.execute("""
+        SELECT id, started_at, ended_at, distance_km, duration_min,
+               efficiency_kwh_100km, start_soc, end_soc
+        FROM trips
+        WHERE ended_at IS NOT NULL
+        ORDER BY started_at DESC
+    """).fetchall()
+    trips_by_day: dict = {}
+    for r in trip_rows:
+        t = dict(r)
         if not t.get("started_at"):
             continue
         try:
-            dt = datetime.fromisoformat(t["started_at"].replace(" ", "T").rstrip("Z"))
+            day_key = datetime.fromisoformat(
+                t["started_at"].replace(" ", "T").rstrip("Z")
+            ).strftime("%Y-%m-%d")
         except Exception:
             continue
+        trips_by_day.setdefault(day_key, []).append(t)
 
-        yr  = dt.strftime("%Y")
-        mo  = dt.strftime("%B %Y")
-        day = dt.strftime("%d %b %Y")
+    years: dict = OrderedDict()
+    for r in agg_rows:
+        yr, mo_key, day_key = r["yr"], r["mo_key"], r["day_key"]
+        count = r["count"]
+        km = r["km"] or 0.0
+        avg_eff = r["avg_eff"]
 
-        years.setdefault(yr, {**_node(yr), "months": OrderedDict()})
-        years[yr]["months"].setdefault(mo, {**_node(mo), "days": OrderedDict()})
-        years[yr]["months"][mo]["days"].setdefault(day, {**_node(day), "trips": []})
+        # Format human-readable labels in Python (SQLite lacks %B)
+        try:
+            mo_label = datetime.strptime(mo_key, "%Y-%m").strftime("%B %Y")
+            day_label = datetime.strptime(day_key, "%Y-%m-%d").strftime("%d %b %Y")
+        except Exception:
+            mo_label = mo_key
+            day_label = day_key
 
-        years[yr]["months"][mo]["days"][day]["trips"].append(t)
+        if yr not in years:
+            years[yr] = {"label": yr, "km": 0.0, "count": 0,
+                         "_ws": 0.0, "_wd": 0.0, "avg_eff": None,
+                         "months": OrderedDict()}
+        if mo_key not in years[yr]["months"]:
+            years[yr]["months"][mo_key] = {"label": mo_label, "km": 0.0, "count": 0,
+                                           "_ws": 0.0, "_wd": 0.0, "avg_eff": None,
+                                           "days": OrderedDict()}
 
-        km  = t.get("distance_km") or 0
-        eff = t.get("efficiency_kwh_100km")
-        for node in [years[yr], years[yr]["months"][mo], years[yr]["months"][mo]["days"][day]]:
-            _add(node, km, eff)
+        day_node = {
+            "label": day_label, "km": km, "count": count, "avg_eff": avg_eff,
+            "trips": trips_by_day.get(day_key, []),
+        }
+        years[yr]["months"][mo_key]["days"][day_key] = day_node
 
-    # Compute weighted avg efficiency for every node
+        for node in (years[yr], years[yr]["months"][mo_key]):
+            node["km"] = round(node["km"] + km, 1)
+            node["count"] += count
+            if avg_eff and km > 0:
+                node["_ws"] += km * avg_eff
+                node["_wd"] += km
+
+    # Roll up weighted avg efficiency to month and year
     for yr_node in years.values():
-        _finalize(yr_node)
+        if yr_node["_wd"] > 0:
+            yr_node["avg_eff"] = round(yr_node["_ws"] / yr_node["_wd"], 1)
         for mo_node in yr_node["months"].values():
-            _finalize(mo_node)
-            for day_node in mo_node["days"].values():
-                _finalize(day_node)
+            if mo_node["_wd"] > 0:
+                mo_node["avg_eff"] = round(mo_node["_ws"] / mo_node["_wd"], 1)
+            # Convert days OrderedDict to list for template compatibility
+            mo_node["days"] = list(mo_node["days"].values())
 
     return list(years.values())
 

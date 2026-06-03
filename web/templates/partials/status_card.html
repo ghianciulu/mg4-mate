@@ -71,3 +71,44 @@
   <div class="text-sm mt-1">{{ t('check_poller') }}</div>
 </div>
 {% endif %}
+
+<!-- Map (refreshes with this partial every 30s) -->
+<div class="mt-5">
+  {% if status and status.latitude and status.longitude %}
+  <div class="stat-label mb-3">{{ t('last_position') }}</div>
+  <div id="status-card-map" class="w-full rounded-lg" style="height:280px"></div>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (function() {
+      var lat = {{ status.latitude }};
+      var lng = {{ status.longitude }};
+      var carType = "{{ vehicle.car_type if vehicle else 'MG4' }}";
+      var lastSeen = "{{ status.last_seen }}";
+      // Destroy previous Leaflet instance if it exists (HTMX re-swap)
+      var container = document.getElementById('status-card-map');
+      if (container && container._leaflet_id) {
+        container._leaflet_map.remove();
+      }
+      var map = L.map('status-card-map').setView([lat, lng], 15);
+      container._leaflet_map = map;
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      var icon = L.divIcon({
+        html: '<div style="background:#14b8a6;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 0 6px rgba(0,0,0,0.5)"></div>',
+        iconSize: [14,14], iconAnchor: [7,7]
+      });
+      L.marker([lat, lng], {icon}).addTo(map)
+        .bindPopup(carType + ' — ' + lastSeen).openPopup();
+    })();
+  </script>
+  {% else %}
+  <div class="flex items-center justify-center h-64 text-slate-500">
+    <div class="text-center">
+      <div class="text-4xl mb-2">🗺</div>
+      <div>{{ t('last_position') }}</div>
+    </div>
+  </div>
+  {% endif %}
+</div>

@@ -2,6 +2,7 @@
 Recorder: reacts to state machine events to persist trips, charges, and positions.
 """
 import logging
+import time
 from typing import Optional
 
 from db import Database
@@ -21,6 +22,7 @@ class Recorder:
         self._regen_kwh: float = 0.0
         self._max_charge_kw: float = 0.0
         self._started: bool = False
+        self._last_process_ts: float = 0.0
 
     @property
     def state(self) -> State:
@@ -63,6 +65,10 @@ class Recorder:
 
     def process(self, data: VehicleData) -> None:
         """Called every poll cycle with fresh vehicle data."""
+        now = time.monotonic()
+        dt = (now - self._last_process_ts) if self._last_process_ts else 10.0
+        self._last_process_ts = now
+
         if not self._started:
             self._started = True
             self._resume_or_close(data)
@@ -81,7 +87,7 @@ class Recorder:
         if self._sm.state == State.DRIVING and self._active_trip_id:
             self._db.add_trip_position(self._active_trip_id, data)
             if not data.plug_connected and data.charge_current_a < -3.0:
-                self._regen_kwh += data.charge_power_kw * (10 / 3600)
+                self._regen_kwh += data.charge_power_kw * (dt / 3600)
 
         # During active charge: track peak power (persisted so it survives a restart)
         if self._sm.state == State.CHARGING and self._active_charge_id:
