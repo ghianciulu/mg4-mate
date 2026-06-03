@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replaced battery temperature with outside temperature on overview status card; AC target temperature kept.
+
 ## 1.3.1
 
 - Expanded vehicle page: individual door states, bonnet, 12V aux battery, lights on/off, compass heading — fetched from HA and stored in positions table.
