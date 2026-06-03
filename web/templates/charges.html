@@ -62,8 +62,8 @@ fetch('api/charge-plan').then(r => r.json()).then(d => {
 {% if ac_dc and ac_dc.total > 0 %}
 <div class="card mb-6">
   <h2 class="font-semibold text-white mb-3">{{ t('ac_dc_distribution') }}</h2>
-  <div class="flex items-center gap-6">
-    <div id="acdc-chart" style="width:190px;flex-shrink:0"></div>
+  <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+    <div id="acdc-chart" class="mx-auto sm:mx-0" style="width:190px;flex-shrink:0"></div>
     <div class="flex-1 grid grid-cols-2 gap-4">
       <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:16px">
         <div class="flex items-center gap-2 mb-2">
@@ -153,11 +153,11 @@ fetch('api/charge-plan').then(r => r.json()).then(d => {
         <span class="group-open:rotate-90 text-slate-400" style="transition:transform .2s;display:inline-block">▶</span>
         <span class="text-white font-bold text-lg">{{ year.label }}</span>
       </div>
-      <div class="flex items-center gap-4 text-sm">
-        <span class="text-slate-500">{{ year.count }} sessions</span>
+      <div class="flex items-center gap-2 sm:gap-4 text-sm">
+        <span class="hidden sm:inline text-slate-500">{{ year.count }} sessions</span>
         <span class="text-yellow-400 font-semibold">{{ year.kwh }} kWh</span>
         {% if year.has_cost %}
-        <span class="text-green-400 font-semibold">€{{ "%.2f"|format(year.cost) }}</span>
+        <span class="hidden sm:inline text-green-400 font-semibold">€{{ "%.2f"|format(year.cost) }}</span>
         {% endif %}
       </div>
     </summary>
@@ -173,11 +173,11 @@ fetch('api/charge-plan').then(r => r.json()).then(d => {
             <span class="group-open/month:rotate-90 text-slate-500 text-sm" style="transition:transform .2s;display:inline-block">▶</span>
             <span class="text-slate-200 font-semibold">{{ month.label }}</span>
           </div>
-          <div class="flex items-center gap-4 text-xs">
-            <span class="text-slate-500">{{ month.count }} sessions</span>
+          <div class="flex items-center gap-2 sm:gap-4 text-xs">
+            <span class="hidden sm:inline text-slate-500">{{ month.count }} sessions</span>
             <span class="text-yellow-400 font-medium">{{ month.kwh }} kWh</span>
             {% if month.has_cost %}
-            <span class="text-green-400 font-medium">€{{ "%.2f"|format(month.cost) }}</span>
+            <span class="hidden sm:inline text-green-400 font-medium">€{{ "%.2f"|format(month.cost) }}</span>
             {% endif %}
           </div>
         </summary>
@@ -216,9 +216,9 @@ fetch('api/charge-plan').then(r => r.json()).then(d => {
 
               <!-- Header -->
               <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 min-w-0">
                   <div style="width:4px;height:40px;background:#fbbf24;border-radius:2px;flex-shrink:0"></div>
-                  <div>
+                  <div class="min-w-0">
                     <div class="text-white font-semibold text-sm">
                       {{ c.started_at[11:16] if c.started_at else '—' }}
                       <span class="text-slate-500 font-normal">→ {{ c.ended_at[11:16] if c.ended_at else '' }}</span>

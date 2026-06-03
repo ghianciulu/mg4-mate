@@ -19,7 +19,7 @@
   </div>
 
   <!-- Map -->
-  <div class="card lg:col-span-1 min-h-64">
+  <div class="card lg:col-span-2 min-h-64">
     {% if status and status.latitude and status.longitude %}
     <div class="stat-label mb-3">{{ t('last_position') }}</div>
     <div id="map" class="w-full rounded-lg" style="height:280px"></div>
@@ -45,16 +45,6 @@
       </div>
     </div>
     {% endif %}
-  </div>
-
-  <!-- Vehicle picture (hidden if no picture available) -->
-  <div class="card lg:col-span-1 flex flex-col min-h-64">
-    <div class="stat-label mb-3">{{ vehicle.car_type if vehicle else t('vehicle') }}</div>
-    <div class="flex-1 flex items-center justify-center">
-      <img src="api/car-picture" alt="{{ vehicle.car_type if vehicle else 'Vehicle' }}"
-           class="max-h-56 w-full object-contain"
-           onerror="this.closest('.card').style.display='none'">
-    </div>
   </div>
 
   <!-- Recent trips -->

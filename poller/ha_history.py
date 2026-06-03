@@ -163,27 +163,24 @@ class HistoryImporter:
         duration = (_dt(end.recorded_at) - _dt(start.recorded_at)).total_seconds() / 60
         energy = max((start.data.soc - end.data.soc) / 100.0 * self._db.get_battery_capacity(), 0)
         efficiency = (energy / distance * 100) if distance > 0.5 else None
-        cur = self._db._conn.execute(
-            """INSERT INTO trips (vehicle_id, started_at, ended_at, start_lat, start_lon,
-               end_lat, end_lon, distance_km, start_soc, end_soc, start_odometer_km,
-               end_odometer_km, duration_min, efficiency_kwh_100km, regen_kwh)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                self._vehicle_id, start.recorded_at, end.recorded_at,
-                start.data.latitude, start.data.longitude, end.data.latitude, end.data.longitude,
-                round(distance, 3), start.data.soc, end.data.soc,
-                start.data.odometer_km, end.data.odometer_km, round(duration, 1),
-                round(efficiency, 2) if efficiency else None, 0.0,
-            ),
+        self._db.insert_historical_trip(
+            vehicle_id=self._vehicle_id,
+            started_at=start.recorded_at,
+            ended_at=end.recorded_at,
+            start_lat=start.data.latitude, start_lon=start.data.longitude,
+            end_lat=end.data.latitude, end_lon=end.data.longitude,
+            distance_km=round(distance, 3),
+            start_soc=start.data.soc, end_soc=end.data.soc,
+            start_odometer_km=start.data.odometer_km, end_odometer_km=end.data.odometer_km,
+            duration_min=round(duration, 1),
+            efficiency_kwh_100km=round(efficiency, 2) if efficiency else None,
+            gps_points=[
+                {"recorded_at": p.recorded_at, "latitude": p.data.latitude,
+                 "longitude": p.data.longitude, "speed_kmh": p.data.speed_kmh,
+                 "soc": p.data.soc}
+                for p in gps
+            ],
         )
-        trip_id = cur.lastrowid
-        for point in gps:
-            self._db._conn.execute(
-                """INSERT INTO trip_positions (trip_id, recorded_at, latitude, longitude, speed_kmh, soc)
-                   VALUES (?,?,?,?,?,?)""",
-                (trip_id, point.recorded_at, point.data.latitude, point.data.longitude, point.data.speed_kmh, point.data.soc),
-            )
-        self._db._conn.commit()
         return 1
 
     def _import_charges(self, snapshots: list[HistoricalSnapshot]) -> int:
@@ -207,18 +204,17 @@ class HistoryImporter:
         max_power = max((s.data.charge_power_kw or 0) for s in segment)
         duration = (_dt(end.recorded_at) - _dt(start.recorded_at)).total_seconds() / 60
         energy = (end.data.soc - start.data.soc) / 100.0 * self._db.get_battery_capacity()
-        self._db._conn.execute(
-            """INSERT INTO charges (vehicle_id, started_at, ended_at, start_soc, end_soc,
-               energy_added_kwh, duration_min, latitude, longitude, charge_type, max_power_kw)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                self._vehicle_id, start.recorded_at, end.recorded_at,
-                start.data.soc, end.data.soc, round(energy, 3), round(duration, 1),
-                start.data.latitude, start.data.longitude,
-                "DC" if max_power > 11 else "AC", round(max_power, 2),
-            ),
+        self._db.insert_historical_charge(
+            vehicle_id=self._vehicle_id,
+            started_at=start.recorded_at,
+            ended_at=end.recorded_at,
+            start_soc=start.data.soc, end_soc=end.data.soc,
+            energy_added_kwh=round(energy, 3),
+            duration_min=round(duration, 1),
+            latitude=start.data.latitude, longitude=start.data.longitude,
+            charge_type="DC" if max_power > 11 else "AC",
+            max_power_kw=round(max_power, 2),
         )
-        self._db._conn.commit()
         return 1
 
 

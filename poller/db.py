@@ -350,6 +350,65 @@ class Database:
             charge_type, max_power_kw,
         )
 
+    # ── Historical import (used by ha_history.py) ────────────────────────
+
+    def insert_historical_trip(
+        self,
+        vehicle_id: int,
+        started_at: str,
+        ended_at: str,
+        start_lat: float, start_lon: float,
+        end_lat: float, end_lon: float,
+        distance_km: float,
+        start_soc: float, end_soc: float,
+        start_odometer_km: float, end_odometer_km: float,
+        duration_min: float,
+        efficiency_kwh_100km: Optional[float],
+        gps_points: list,
+    ) -> int:
+        cur = self._conn.execute(
+            """INSERT INTO trips (vehicle_id, started_at, ended_at, start_lat, start_lon,
+               end_lat, end_lon, distance_km, start_soc, end_soc, start_odometer_km,
+               end_odometer_km, duration_min, efficiency_kwh_100km, regen_kwh)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (vehicle_id, started_at, ended_at, start_lat, start_lon, end_lat, end_lon,
+             distance_km, start_soc, end_soc, start_odometer_km, end_odometer_km,
+             duration_min, efficiency_kwh_100km, 0.0),
+        )
+        trip_id = cur.lastrowid
+        for pt in gps_points:
+            self._conn.execute(
+                """INSERT INTO trip_positions (trip_id, recorded_at, latitude, longitude, speed_kmh, soc)
+                   VALUES (?,?,?,?,?,?)""",
+                (trip_id, pt["recorded_at"], pt["latitude"], pt["longitude"],
+                 pt["speed_kmh"], pt["soc"]),
+            )
+        self._conn.commit()
+        return trip_id
+
+    def insert_historical_charge(
+        self,
+        vehicle_id: int,
+        started_at: str,
+        ended_at: str,
+        start_soc: float, end_soc: float,
+        energy_added_kwh: float,
+        duration_min: float,
+        latitude: float, longitude: float,
+        charge_type: str,
+        max_power_kw: float,
+    ) -> int:
+        cur = self._conn.execute(
+            """INSERT INTO charges (vehicle_id, started_at, ended_at, start_soc, end_soc,
+               energy_added_kwh, duration_min, latitude, longitude, charge_type, max_power_kw)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (vehicle_id, started_at, ended_at, start_soc, end_soc,
+             energy_added_kwh, duration_min, latitude, longitude,
+             charge_type, max_power_kw),
+        )
+        self._conn.commit()
+        return cur.lastrowid
+
     # ── Startup cleanup ───────────────────────────────────────────────────
 
     def close_orphan_trips(self, vehicle_id: int) -> int:

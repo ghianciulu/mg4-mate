@@ -132,11 +132,11 @@
         <span class="group-open:rotate-90 text-slate-400" style="transition:transform .2s;display:inline-block">▶</span>
         <span class="text-white font-bold text-lg">{{ year.label }}</span>
       </div>
-      <div class="flex items-center gap-5 text-sm">
-        <span class="text-slate-500">{{ year.trip_count }} trips</span>
+      <div class="flex items-center gap-2 sm:gap-5 text-sm">
+        <span class="hidden sm:inline text-slate-500">{{ year.trip_count }} trips</span>
         <span class="text-white font-semibold">{{ year.total_km }} km</span>
-        <span class="text-slate-400">{{ year.total_kwh }} kWh</span>
-        {{ eff_badge(year.avg_efficiency) }}
+        <span class="hidden sm:inline text-slate-400">{{ year.total_kwh }} kWh</span>
+        <span class="hidden sm:inline">{{ eff_badge(year.avg_efficiency) }}</span>
       </div>
     </summary>
 
@@ -151,11 +151,11 @@
             <span class="group-open/month:rotate-90 text-slate-500 text-sm" style="transition:transform .2s;display:inline-block">▶</span>
             <span class="text-slate-200 font-semibold">{{ month.label }}</span>
           </div>
-          <div class="flex items-center gap-5 text-xs">
-            <span class="text-slate-500">{{ month.trip_count }} trips</span>
+          <div class="flex items-center gap-2 sm:gap-5 text-xs">
+            <span class="hidden sm:inline text-slate-500">{{ month.trip_count }} trips</span>
             <span class="text-slate-200 font-semibold">{{ month.total_km }} km</span>
-            <span class="text-slate-400">{{ month.total_kwh }} kWh</span>
-            {{ eff_badge(month.avg_efficiency) }}
+            <span class="hidden sm:inline text-slate-400">{{ month.total_kwh }} kWh</span>
+            <span class="hidden sm:inline">{{ eff_badge(month.avg_efficiency) }}</span>
           </div>
         </summary>
 
