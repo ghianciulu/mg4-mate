@@ -4,7 +4,7 @@
 
 ## 1.2.4
 
-## 1.2.3
+- Fixed trip merge root cause: HA ingress sets <base href> so absolute hx-post paths resolved to HA root instead of addon. Changed to relative path and added x-ingress-path prefix to HX-Redirect.
 
 ## 1.2.3
 
