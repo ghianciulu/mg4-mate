@@ -4,6 +4,8 @@
 
 ## 1.2.1
 
+## 1.2.1
+
 - Fixed 500 error on trips page caused by `get_trips_grouped()` converting days dict to list after SQL rewrite.
 - Added regression test for trips grouped structure.
 
