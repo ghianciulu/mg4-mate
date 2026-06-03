@@ -31,7 +31,20 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name  "github-actions[bot]"
 
-      - name: Update MATE_REF and addon version
+      - name: Promote Unreleased → versioned in mg4-mate CHANGELOG
+        run: |
+          VERSION=${{ steps.meta.outputs.version }}
+          # Rename ## Unreleased to ## {VERSION}
+          sed -i "s/^## Unreleased$/## ${VERSION}/" CHANGELOG.md
+          # Re-add an empty Unreleased section at the top for the next release
+          sed -i "s/^# Changelog$/# Changelog\n\n## Unreleased/" CHANGELOG.md
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git add CHANGELOG.md
+          git diff --cached --quiet || git commit -m "chore: promote Unreleased to ${VERSION} in CHANGELOG"
+          git push
+
+      - name: Update MATE_REF, addon version and CHANGELOG
         run: |
           SHA=${{ steps.meta.outputs.sha }}
           VERSION=${{ steps.meta.outputs.version }}
@@ -42,10 +55,22 @@ jobs:
           # Update version in config.yaml
           sed -i "s/^version: \".*\"/version: \"${VERSION}\"/" /tmp/addon/mg4_mate/config.yaml
 
-      - name: Commit and push
+          # Extract the version section from mg4-mate CHANGELOG and prepend to addon CHANGELOG
+          SECTION=$(awk "/^## ${VERSION}/{found=1; next} found && /^## /{exit} found{print}" CHANGELOG.md)
+          if [ -n "$SECTION" ]; then
+            ADDON_CL="/tmp/addon/mg4_mate/CHANGELOG.md"
+            TEMP=$(mktemp)
+            printf "## %s\n\n%s\n\n" "${VERSION}" "${SECTION}" > "$TEMP"
+            cat "$ADDON_CL" >> "$TEMP"
+            # Replace header line to avoid duplicating it
+            { echo "# Changelog"; echo; tail -n +2 "$TEMP"; } > "$ADDON_CL"
+            rm "$TEMP"
+          fi
+
+      - name: Commit and push addon
         run: |
           cd /tmp/addon
-          git add mg4_mate/Dockerfile mg4_mate/config.yaml
+          git add mg4_mate/Dockerfile mg4_mate/config.yaml mg4_mate/CHANGELOG.md
           git diff --cached --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: bump to mg4-mate ${{ github.ref_name }} (${MATE_SHA})"
           git push
