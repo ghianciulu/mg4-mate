@@ -47,15 +47,15 @@
     <span class="text-white font-medium">{{ "%.0f"|format(status.inside_temp or 0) }}°C</span>
   </div>
   <div class="flex justify-between text-slate-400">
-    <span>{{ t('ac_target') }}</span>
+    <span>{{ t('temp_outside') }}</span>
     <span class="text-white font-medium">
-      {% if status.climate_target_temp %}{{ "%.0f"|format(status.climate_target_temp) }}°C{% else %}—{% endif %}
+      {% if status.outside_temp %}{{ "%.0f"|format(status.outside_temp) }}°C{% else %}—{% endif %}
     </span>
   </div>
   <div class="flex justify-between text-slate-400">
-    <span>{{ t('battery_temp') }}</span>
+    <span>{{ t('ac_target') }}</span>
     <span class="text-white font-medium">
-      {% if status.battery_min_temp %}{{ "%.0f"|format(status.battery_min_temp) }}°C{% else %}—{% endif %}
+      {% if status.climate_target_temp %}{{ "%.0f"|format(status.climate_target_temp) }}°C{% else %}—{% endif %}
     </span>
   </div>
   <div class="flex justify-between text-slate-400 col-span-2">
