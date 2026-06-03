@@ -104,6 +104,45 @@ def update_charge_type(charge_id: int, location_type: str) -> dict:
     return dict(db.execute("SELECT * FROM charges WHERE id=?", (charge_id,)).fetchone())
 
 
+def update_charge(charge_id: int, started_at: str, ended_at: str | None,
+                  start_soc: float, end_soc: float | None) -> dict | None:
+    db = _conn_rw()
+    charge = db.execute("SELECT * FROM charges WHERE id=?", (charge_id,)).fetchone()
+    if not charge:
+        return None
+
+    cap_row = db.execute("SELECT value FROM settings WHERE key='battery_capacity_kwh'").fetchone()
+    capacity = float(cap_row["value"]) if cap_row else 64.0
+
+    duration_min     = charge["duration_min"]
+    energy_added_kwh = charge["energy_added_kwh"]
+    cost             = charge["cost"]
+
+    if ended_at and end_soc is not None:
+        try:
+            t0 = datetime.fromisoformat(started_at)
+            t1 = datetime.fromisoformat(ended_at)
+            duration_min = round(abs((t1 - t0).total_seconds()) / 60, 1)
+        except Exception:
+            pass
+        energy_added_kwh = round(max((end_soc - start_soc) / 100.0 * capacity, 0), 3)
+        location_type = charge["location_type"]
+        prices   = get_charge_prices()
+        price_key = PRICE_KEYS.get(location_type) if location_type else None
+        price     = prices.get(price_key, 0.0) if price_key else 0.0
+        cost      = round(energy_added_kwh * price, 2) if price else None
+
+    db.execute(
+        """UPDATE charges SET started_at=?, ended_at=?, start_soc=?, end_soc=?,
+           energy_added_kwh=?, duration_min=?, cost=? WHERE id=?""",
+        (started_at, ended_at, start_soc, end_soc, energy_added_kwh, duration_min, cost, charge_id)
+    )
+    db.commit()
+    global _ro_conn
+    _ro_conn = None
+    return dict(db.execute("SELECT * FROM charges WHERE id=?", (charge_id,)).fetchone())
+
+
 def update_charge_price(key: str, value: float) -> None:
     db = _conn_rw()
     db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)", (key, str(value)))

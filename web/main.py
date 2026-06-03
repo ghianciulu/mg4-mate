@@ -271,6 +271,33 @@ async def set_charge_type(request: Request, charge_id: int):
     })
 
 
+@app.post("/api/charges/{charge_id}/edit", response_class=HTMLResponse)
+async def edit_charge(request: Request, charge_id: int):
+    form = await request.form()
+    try:
+        def _norm(s: str) -> str:
+            s = s.strip().replace(" ", "T")
+            if len(s) == 16:
+                s += ":00"
+            return s
+
+        started_at = _norm(str(form.get("started_at", "")))
+        ended_at_raw = str(form.get("ended_at", "")).strip()
+        ended_at   = _norm(ended_at_raw) if ended_at_raw else None
+        start_soc  = float(form.get("start_soc", 0))
+        end_soc_raw = str(form.get("end_soc", "")).strip()
+        end_soc    = float(end_soc_raw) if end_soc_raw else None
+    except (ValueError, TypeError) as exc:
+        return HTMLResponse(f'<span class="text-red-400">Invalid data: {exc}</span>')
+
+    result = db_reader.update_charge(charge_id, started_at, ended_at, start_soc, end_soc)
+    if not result:
+        return HTMLResponse('<span class="text-red-400">Charge not found</span>')
+
+    ingress = request.headers.get("x-ingress-path", "")
+    return HTMLResponse("", headers={"HX-Redirect": f"{ingress}/charges?highlight={charge_id}"})
+
+
 @app.post("/api/settings/prices", response_class=HTMLResponse)
 async def save_prices(request: Request):
     form = await request.form()

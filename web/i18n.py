@@ -228,6 +228,10 @@ _T: dict[str, dict[str, str]] = {
         "merge_with_prev":      "Merge with previous trip",
         "merge_with_next":      "Merge with next trip",
         "merge_confirm":        "Merge these two trips into one? This cannot be undone.",
+        "edit_charge":         "Edit",
+        "edit_charge_title":   "Edit charge",
+        "edit_charge_cancel":  "Cancel",
+        "edit_charge_confirm": "Save changes to this charge session?",
         "saved":                "Saved",
         # Setup
         "lang_en":              "English",
@@ -460,6 +464,10 @@ _T: dict[str, dict[str, str]] = {
         "merge_with_prev":      "Unisci al viaggio precedente",
         "merge_with_next":      "Unisci al viaggio successivo",
         "merge_confirm":        "Unire i due viaggi? Questa operazione non è reversibile.",
+        "edit_charge":         "Modifica",
+        "edit_charge_title":   "Modifica ricarica",
+        "edit_charge_cancel":  "Annulla",
+        "edit_charge_confirm": "Salvare le modifiche a questa sessione di ricarica?",
         "saved":                "Salvato",
         # Setup
         "lang_en":              "English",

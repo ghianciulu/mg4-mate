@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Auto-correct charge start SOC: when poller wakes up during an active charge (PARKED_SLEEP gap), use the last pre-plug-in position SOC instead of the current (already-charging) SOC.
+- Added manual charge edit: each charge card now has an inline edit panel to correct start/end times and SOC values; derived fields (duration, energy, cost) are recalculated automatically.
+
 ## 1.2.4
 
 - Fixed trip merge root cause: HA ingress sets <base href> so absolute hx-post paths resolved to HA root instead of addon. Changed to relative path and added x-ingress-path prefix to HX-Redirect.

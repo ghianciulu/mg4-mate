@@ -311,14 +311,30 @@ class Database:
     # ── Charge ───────────────────────────────────────────────────────────────
 
     def create_charge(self, vehicle_id: int, data) -> int:
+        start_soc = data.soc
+        start_ts  = _now_iso()
+        pre = self._conn.execute(
+            """SELECT soc, recorded_at FROM positions
+               WHERE vehicle_id=? AND (plug_connected=0 OR plug_connected IS NULL)
+               AND recorded_at >= datetime('now', '-2 hours')
+               ORDER BY recorded_at DESC LIMIT 1""",
+            (vehicle_id,)
+        ).fetchone()
+        if pre and pre["soc"] is not None and pre["soc"] < data.soc:
+            start_soc = pre["soc"]
+            start_ts  = pre["recorded_at"]
+            log.info(
+                "Charge start SOC adjusted %.1f%%→%.1f%% from pre-charge position (%s)",
+                data.soc, start_soc, pre["recorded_at"]
+            )
         cur = self._conn.execute(
             """INSERT INTO charges (vehicle_id, started_at, start_soc, latitude, longitude)
                VALUES (?,?,?,?,?)""",
-            (vehicle_id, _now_iso(), data.soc, data.latitude, data.longitude),
+            (vehicle_id, start_ts, start_soc, data.latitude, data.longitude),
         )
         self._conn.commit()
         charge_id = cur.lastrowid
-        log.info("Charge #%d started — SOC %.1f%%", charge_id, data.soc)
+        log.info("Charge #%d started — SOC %.1f%%", charge_id, start_soc)
         return charge_id
 
     def finalize_charge(self, charge_id: int, data, max_power_kw: float = 0.0,
