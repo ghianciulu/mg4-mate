@@ -43,6 +43,10 @@ class VehicleData:
     lights_main: bool = False
     lights_side: bool = False
     heading_deg: float = 0.0
+    tyre_fl_bar: float = 0.0
+    tyre_fr_bar: float = 0.0
+    tyre_rl_bar: float = 0.0
+    tyre_rr_bar: float = 0.0
 
     def fingerprint(self) -> tuple:
         """Compact snapshot of signals that indicate car activity."""

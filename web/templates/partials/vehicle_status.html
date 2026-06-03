@@ -31,6 +31,83 @@
 
 <div class="space-y-6">
 
+  <!-- Tyres -->
+  {% if vs.tyres.fl or vs.tyres.fr or vs.tyres.rl or vs.tyres.rr %}
+  <div>
+    <div class="text-white font-semibold mb-3">🛞 {{ t('tyre_pressure') }}</div>
+    {% set tyres = vs.tyres %}
+    {% macro tyre_color(bar) %}{% if bar and bar >= 2.3 %}#4ade80{% elif bar and bar >= 2.0 %}#fbbf24{% elif bar %}#f87171{% else %}#64748b{% endif %}{% endmacro %}
+    {% macro tyre_label(bar) %}{% if bar %}{{ "%.2f"|format(bar) }} bar{% else %}—{% endif %}{% endmacro %}
+
+    <div style="display:flex;justify-content:center;align-items:center;padding:8px 0">
+      <div style="position:relative;width:260px;height:420px">
+
+        <!-- SVG car top-down view -->
+        <svg viewBox="0 0 260 420" width="260" height="420" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0">
+          <!-- Car body -->
+          <rect x="55" y="60" width="150" height="300" rx="30" ry="30" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+          <!-- Roof outline -->
+          <rect x="75" y="100" width="110" height="220" rx="15" ry="15" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
+          <!-- Windscreen front -->
+          <rect x="78" y="103" width="104" height="60" rx="8" fill="#1e3a5f" stroke="#38bdf8" stroke-width="1" opacity="0.8"/>
+          <!-- Windscreen rear -->
+          <rect x="78" y="257" width="104" height="60" rx="8" fill="#1e3a5f" stroke="#38bdf8" stroke-width="1" opacity="0.8"/>
+          <!-- Center console line -->
+          <line x1="130" y1="170" x2="130" y2="250" stroke="#334155" stroke-width="1.5"/>
+          <!-- Door lines -->
+          <line x1="55" y1="200" x2="205" y2="200" stroke="#334155" stroke-width="1" opacity="0.6"/>
+          <!-- Front bumper -->
+          <rect x="75" y="50" width="110" height="14" rx="7" fill="#334155" stroke="#475569" stroke-width="1"/>
+          <!-- Rear bumper -->
+          <rect x="75" y="356" width="110" height="14" rx="7" fill="#334155" stroke="#475569" stroke-width="1"/>
+          <!-- Front-left wheel -->
+          <rect x="22" y="90" width="34" height="70" rx="8" fill="{{ tyre_color(tyres.fl) }}" opacity="0.25"/>
+          <rect x="22" y="90" width="34" height="70" rx="8" fill="none" stroke="{{ tyre_color(tyres.fl) }}" stroke-width="2"/>
+          <!-- Front-right wheel -->
+          <rect x="204" y="90" width="34" height="70" rx="8" fill="{{ tyre_color(tyres.fr) }}" opacity="0.25"/>
+          <rect x="204" y="90" width="34" height="70" rx="8" fill="none" stroke="{{ tyre_color(tyres.fr) }}" stroke-width="2"/>
+          <!-- Rear-left wheel -->
+          <rect x="22" y="260" width="34" height="70" rx="8" fill="{{ tyre_color(tyres.rl) }}" opacity="0.25"/>
+          <rect x="22" y="260" width="34" height="70" rx="8" fill="none" stroke="{{ tyre_color(tyres.rl) }}" stroke-width="2"/>
+          <!-- Rear-right wheel -->
+          <rect x="204" y="260" width="34" height="70" rx="8" fill="{{ tyre_color(tyres.rr) }}" opacity="0.25"/>
+          <rect x="204" y="260" width="34" height="70" rx="8" fill="none" stroke="{{ tyre_color(tyres.rr) }}" stroke-width="2"/>
+        </svg>
+
+        <!-- Pressure labels — positioned over SVG using absolute divs -->
+        <!-- Front-left -->
+        <div style="position:absolute;top:95px;left:0;text-align:center;width:58px">
+          <div style="font-size:13px;font-weight:700;color:{{ tyre_color(tyres.fl) }}">{{ tyre_label(tyres.fl) }}</div>
+          <div style="font-size:10px;color:#64748b">{{ t('tyre_fl') }}</div>
+        </div>
+        <!-- Front-right -->
+        <div style="position:absolute;top:95px;right:0;text-align:center;width:58px">
+          <div style="font-size:13px;font-weight:700;color:{{ tyre_color(tyres.fr) }}">{{ tyre_label(tyres.fr) }}</div>
+          <div style="font-size:10px;color:#64748b">{{ t('tyre_fr') }}</div>
+        </div>
+        <!-- Rear-left -->
+        <div style="position:absolute;top:270px;left:0;text-align:center;width:58px">
+          <div style="font-size:13px;font-weight:700;color:{{ tyre_color(tyres.rl) }}">{{ tyre_label(tyres.rl) }}</div>
+          <div style="font-size:10px;color:#64748b">{{ t('tyre_rl') }}</div>
+        </div>
+        <!-- Rear-right -->
+        <div style="position:absolute;top:270px;right:0;text-align:center;width:58px">
+          <div style="font-size:13px;font-weight:700;color:{{ tyre_color(tyres.rr) }}">{{ tyre_label(tyres.rr) }}</div>
+          <div style="font-size:10px;color:#64748b">{{ t('tyre_rr') }}</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Low pressure warning -->
+    {% if (tyres.fl and tyres.fl < 2.3) or (tyres.fr and tyres.fr < 2.3) or (tyres.rl and tyres.rl < 2.3) or (tyres.rr and tyres.rr < 2.3) %}
+    <div style="margin-top:8px;padding:8px 12px;background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.3);border-radius:10px;font-size:13px;color:#f87171;text-align:center">
+      ⚠️ {{ t('tyre_low') }}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Battery & Range -->
   <div>
     <div class="text-white font-semibold mb-3">⚡ {{ t('battery_range') }}</div>

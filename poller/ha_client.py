@@ -112,6 +112,10 @@ class HomeAssistantMateClient:
             lights_main=self._bool(states, "binary_sensor", "lights_main_beam"),
             lights_side=self._bool(states, "binary_sensor", "lights_side"),
             heading_deg=self._float(states, "sensor", "heading") or 0.0,
+            tyre_fl_bar=self._float(states, "sensor", "tyres_front_left_pressure") or 0.0,
+            tyre_fr_bar=self._float(states, "sensor", "tyres_front_right_pressure") or 0.0,
+            tyre_rl_bar=self._float(states, "sensor", "tyres_rear_left_pressure") or 0.0,
+            tyre_rr_bar=self._float(states, "sensor", "tyres_rear_right_pressure") or 0.0,
         )
 
     def close(self):
@@ -153,6 +157,10 @@ class HomeAssistantMateClient:
             f"binary_sensor.{p}_lights_main_beam",
             f"binary_sensor.{p}_lights_side",
             f"sensor.{p}_heading",
+            f"sensor.{p}_tyres_front_left_pressure",
+            f"sensor.{p}_tyres_front_right_pressure",
+            f"sensor.{p}_tyres_rear_left_pressure",
+            f"sensor.{p}_tyres_rear_right_pressure",
             f"lock.{p}_doors_lock",
             f"climate.{p}_vehicle_climate",
             f"device_tracker.{p}_vehicle_position",

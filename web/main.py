@@ -260,6 +260,12 @@ async def vehicle_status_api(request: Request):
                 "outside": status.get("outside_temp"),
                 "battery": status.get("battery_min_temp"),
             },
+            "tyres": {
+                "fl": status.get("tyre_fl_bar"),
+                "fr": status.get("tyre_fr_bar"),
+                "rl": status.get("tyre_rl_bar"),
+                "rr": status.get("tyre_rr_bar"),
+            },
         }
     return templates.TemplateResponse(request, "partials/vehicle_status.html", _ctx(vs=vs))
 

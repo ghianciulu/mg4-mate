@@ -63,7 +63,11 @@ CREATE TABLE IF NOT EXISTS positions (
     bonnet_open          INTEGER DEFAULT NULL,
     aux_battery_v        REAL DEFAULT NULL,
     lights_any           INTEGER DEFAULT NULL,
-    heading_deg          REAL DEFAULT NULL
+    heading_deg          REAL DEFAULT NULL,
+    tyre_fl_bar          REAL DEFAULT NULL,
+    tyre_fr_bar          REAL DEFAULT NULL,
+    tyre_rl_bar          REAL DEFAULT NULL,
+    tyre_rr_bar          REAL DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS trips (
@@ -183,6 +187,10 @@ class Database:
             ("aux_battery_v", "REAL DEFAULT NULL"),
             ("lights_any", "INTEGER DEFAULT NULL"),
             ("heading_deg", "REAL DEFAULT NULL"),
+            ("tyre_fl_bar", "REAL DEFAULT NULL"),
+            ("tyre_fr_bar", "REAL DEFAULT NULL"),
+            ("tyre_rl_bar", "REAL DEFAULT NULL"),
+            ("tyre_rr_bar", "REAL DEFAULT NULL"),
         ]:
             if col not in cols:
                 self._conn.execute(f"ALTER TABLE positions ADD COLUMN {col} {defn}")
@@ -245,8 +253,9 @@ class Database:
                 trunk_open, windows_open, sunshade_open, plug_connected,
                 remaining_charge_min, charge_voltage_v, charge_current_a,
                 door_fl_open, door_fr_open, door_rl_open, door_rr_open,
-                bonnet_open, aux_battery_v, lights_any, heading_deg)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                bonnet_open, aux_battery_v, lights_any, heading_deg,
+                tyre_fl_bar, tyre_fr_bar, tyre_rl_bar, tyre_rr_bar)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 vehicle_id, recorded_at,
                 data.latitude, data.longitude, data.speed_kmh, data.odometer_km,
@@ -273,6 +282,10 @@ class Database:
                 data.aux_battery_v or None,
                 1 if (data.lights_dipped or data.lights_main or data.lights_side) else 0,
                 data.heading_deg or None,
+                data.tyre_fl_bar or None,
+                data.tyre_fr_bar or None,
+                data.tyre_rl_bar or None,
+                data.tyre_rr_bar or None,
             ),
         )
         self._conn.commit()
