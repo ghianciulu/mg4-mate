@@ -35,15 +35,24 @@ def _conn(db_path: str) -> sqlite3.Connection:
 
 DB_PATH = os.environ.get("DB_PATH", "mg4_mate.db")
 
+_ro_conn: sqlite3.Connection | None = None
+_rw_conn: sqlite3.Connection | None = None
 
-def _get():
-    return _conn(DB_PATH)
+
+def _get() -> sqlite3.Connection:
+    global _ro_conn
+    if _ro_conn is None:
+        _ro_conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, check_same_thread=False)
+        _ro_conn.row_factory = sqlite3.Row
+    return _ro_conn
 
 
 def _conn_rw() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+    global _rw_conn
+    if _rw_conn is None:
+        _rw_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        _rw_conn.row_factory = sqlite3.Row
+    return _rw_conn
 
 
 def get_setting(key: str, default: str = "") -> str:
@@ -248,7 +257,7 @@ def get_trip_detail(trip_id: int) -> Optional[dict]:
     }
 
 
-def get_charges(limit: int = 50) -> list[dict]:
+def get_charges(limit: int = 500) -> list[dict]:
     db = _get()
     rows = db.execute(
         "SELECT * FROM charges WHERE ended_at IS NOT NULL ORDER BY started_at DESC LIMIT ?",
@@ -330,8 +339,7 @@ def get_stats_grouped() -> list[dict]:
             mo_node["trips"] = []
 
     # Attach individual trips (chronological ASC) to each month for per-trip charts
-    db2 = _get()
-    trip_rows = db2.execute(
+    trip_rows = db.execute(
         """SELECT id, started_at, distance_km, efficiency_kwh_100km, regen_kwh
            FROM trips WHERE ended_at IS NOT NULL ORDER BY started_at ASC"""
     ).fetchall()
@@ -421,7 +429,11 @@ def get_stats_summary() -> dict:
                ROUND(SUM(distance_km), 1)                                    AS total_km,
                ROUND(SUM(distance_km * COALESCE(efficiency_kwh_100km,0)/100), 1) AS total_kwh_used,
                ROUND(SUM(duration_min), 0)                                   AS total_drive_min,
-               ROUND(AVG(efficiency_kwh_100km), 1)                           AS avg_efficiency,
+               ROUND(
+                   SUM(distance_km * COALESCE(efficiency_kwh_100km, 0)) /
+                   NULLIF(SUM(CASE WHEN efficiency_kwh_100km IS NOT NULL THEN distance_km END), 0),
+                   1
+               ) AS avg_efficiency,
                ROUND(MIN(efficiency_kwh_100km), 1)                           AS best_efficiency,
                ROUND(SUM(regen_kwh), 1)                                      AS total_regen_kwh,
                ROUND(AVG(regen_kwh), 2)                                      AS avg_regen_kwh

@@ -6,6 +6,7 @@ import logging
 import time
 import urllib.request
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -108,16 +109,61 @@ class HomeAssistantMateClient:
     def _fetch_states_from_api(self) -> list[dict[str, Any]]:
         if not self._ha_url or not self._token:
             raise RuntimeError("HA_URL and HA_TOKEN are required for Home Assistant source")
-        req = urllib.request.Request(
-            f"{self._ha_url}/api/states",
-            headers={
-                "Authorization": f"Bearer {self._token}",
-                "Content-Type": "application/json",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=20) as response:
-            body = response.read().decode("utf-8")
-        return json.loads(body)
+
+        p = self._entity_prefix
+        entity_ids = [
+            f"sensor.{p}_soc",
+            f"sensor.{p}_range",
+            f"sensor.{p}_mileage",
+            f"sensor.{p}_vehicle_speed",
+            f"sensor.{p}_power",
+            f"sensor.{p}_current",
+            f"sensor.{p}_voltage",
+            f"sensor.{p}_exterior_temperature",
+            f"sensor.{p}_interior_temperature",
+            f"sensor.{p}_total_battery_capacity",
+            f"sensor.{p}_remaining_charging_time",
+            f"sensor.{p}_remote_climate_state",
+            f"binary_sensor.{p}_vehicle_running",
+            f"binary_sensor.{p}_battery_charging",
+            f"binary_sensor.{p}_charger_connected",
+            f"binary_sensor.{p}_boot",
+            f"binary_sensor.{p}_window_driver",
+            f"binary_sensor.{p}_window_passenger",
+            f"binary_sensor.{p}_window_rear_left",
+            f"binary_sensor.{p}_window_rear_right",
+            f"binary_sensor.{p}_door_driver",
+            f"binary_sensor.{p}_door_passenger",
+            f"binary_sensor.{p}_door_rear_left",
+            f"binary_sensor.{p}_door_rear_right",
+            f"lock.{p}_doors_lock",
+            f"climate.{p}_vehicle_climate",
+            f"device_tracker.{p}_vehicle_position",
+        ]
+
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "Content-Type": "application/json",
+        }
+
+        def fetch_one(entity_id: str) -> dict[str, Any]:
+            req = urllib.request.Request(
+                f"{self._ha_url}/api/states/{entity_id}",
+                headers=headers,
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=20) as response:
+                    body = response.read().decode("utf-8")
+                return json.loads(body)
+            except urllib.error.HTTPError as e:
+                if e.code == 404:
+                    return {"entity_id": entity_id, "state": "unavailable", "attributes": {}}
+                raise
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(executor.map(fetch_one, entity_ids))
+
+        return results
 
     def _state_map(self, states: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         prefix = self._entity_prefix
