@@ -549,7 +549,21 @@ def merge_trips(keep_id: int, drop_id: int) -> dict:
     db.commit()
 
     row = db.execute("SELECT * FROM trips WHERE id=?", (keep_id,)).fetchone()
-    return dict(row) if row else {}
+    result = dict(row) if row else {}
+
+    # Reset the read-only connection singleton so the next read sees the committed
+    # data. In WAL mode the ro connection holds a read snapshot; without resetting
+    # it, callers (e.g. get_trip_detail after the HX-Redirect) would still see the
+    # pre-merge state.
+    global _ro_conn
+    if _ro_conn is not None:
+        try:
+            _ro_conn.close()
+        except Exception:
+            pass
+        _ro_conn = None
+
+    return result
 
 
 def get_adjacent_trips(trip_id: int) -> tuple:

@@ -168,5 +168,132 @@ class TestGetTripsGrouped(unittest.TestCase):
         self.assertNotIn("avg_efficiency", day)
 
 
+class TestMergeTrips(unittest.TestCase):
+    """Tests for merge_trips() — verifies DB writes and ro_conn cache invalidation."""
+
+    def setUp(self):
+        self._tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self._tmp.close()
+        con = sqlite3.connect(self._tmp.name)
+        con.executescript("""
+            CREATE TABLE trips (
+                id                   INTEGER PRIMARY KEY,
+                vehicle_id           INTEGER,
+                started_at           TEXT,
+                ended_at             TEXT,
+                start_soc            REAL,
+                end_soc              REAL,
+                distance_km          REAL,
+                duration_min         REAL,
+                efficiency_kwh_100km REAL,
+                regen_kwh            REAL,
+                start_odometer_km    REAL,
+                end_odometer_km      REAL
+            );
+            CREATE TABLE trip_positions (
+                id         INTEGER PRIMARY KEY,
+                trip_id    INTEGER,
+                latitude   REAL,
+                longitude  REAL,
+                speed_kmh  REAL,
+                soc        REAL
+            );
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+            CREATE TABLE vehicles  (id INTEGER PRIMARY KEY, vin TEXT, car_type TEXT);
+            INSERT INTO settings VALUES ('setup_complete', '1');
+            INSERT INTO trips VALUES (1, 1,
+                '2026-06-01 10:00:00', '2026-06-01 10:20:00',
+                80, 70, 15.0, 20, 18.0, 0.5, 1000, 1015);
+            INSERT INTO trips VALUES (2, 1,
+                '2026-06-01 10:35:00', '2026-06-01 10:55:00',
+                68, 55, 12.0, 20, 19.0, 0.4, 1015, 1027);
+            INSERT INTO trip_positions VALUES (1, 1, 51.5, 0.1, 50.0, 78.0);
+            INSERT INTO trip_positions VALUES (2, 1, 51.6, 0.2, 60.0, 75.0);
+            INSERT INTO trip_positions VALUES (3, 2, 51.7, 0.3, 55.0, 66.0);
+        """)
+        con.commit()
+        con.close()
+
+        import db_reader
+        db_reader.DB_PATH = self._tmp.name
+        db_reader._ro_conn = None
+        db_reader._rw_conn = None
+        self.db_reader = db_reader
+
+    def tearDown(self):
+        import db_reader
+        for attr in ("_ro_conn", "_rw_conn"):
+            conn = getattr(db_reader, attr, None)
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            setattr(db_reader, attr, None)
+        os.unlink(self._tmp.name)
+
+    def test_merge_returns_non_empty_dict(self):
+        result = self.db_reader.merge_trips(1, 2)
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result, "merge_trips() returned empty dict")
+
+    def test_merged_distance_is_sum(self):
+        result = self.db_reader.merge_trips(1, 2)
+        self.assertAlmostEqual(result["distance_km"], 27.0, places=1)
+
+    def test_merged_regen_is_sum(self):
+        result = self.db_reader.merge_trips(1, 2)
+        self.assertAlmostEqual(result["regen_kwh"], 0.9, places=2)
+
+    def test_merged_end_matches_dropped_trip(self):
+        result = self.db_reader.merge_trips(1, 2)
+        self.assertEqual(result["ended_at"], "2026-06-01 10:55:00")
+        self.assertAlmostEqual(result["end_soc"], 55.0, places=1)
+        self.assertAlmostEqual(result["end_odometer_km"], 1027.0, places=1)
+
+    def test_dropped_trip_is_gone(self):
+        self.db_reader.merge_trips(1, 2)
+        con = sqlite3.connect(self._tmp.name)
+        rows = con.execute("SELECT id FROM trips").fetchall()
+        con.close()
+        ids = [r[0] for r in rows]
+        self.assertIn(1, ids)
+        self.assertNotIn(2, ids, "Dropped trip 2 still exists after merge")
+
+    def test_positions_reassigned_to_kept_trip(self):
+        self.db_reader.merge_trips(1, 2)
+        con = sqlite3.connect(self._tmp.name)
+        rows = con.execute("SELECT trip_id FROM trip_positions").fetchall()
+        con.close()
+        trip_ids = {r[0] for r in rows}
+        self.assertEqual(trip_ids, {1}, "All positions should belong to trip 1")
+
+    def test_ro_conn_reset_after_merge(self):
+        """After merge_trips(), _ro_conn must be None so next read sees fresh data."""
+        # Force a read so _ro_conn gets populated
+        _ = self.db_reader.get_trip_detail(1)
+        self.assertIsNotNone(self.db_reader._ro_conn)
+        # Merge — should reset _ro_conn
+        self.db_reader.merge_trips(1, 2)
+        self.assertIsNone(self.db_reader._ro_conn,
+                          "_ro_conn should be reset to None after merge_trips()")
+
+    def test_get_trip_detail_sees_merged_data(self):
+        """get_trip_detail() after merge must return merged distance, not old value."""
+        # Prime the ro_conn cache with the pre-merge state
+        _ = self.db_reader.get_trip_detail(1)
+        # Perform merge
+        self.db_reader.merge_trips(1, 2)
+        # Now read via the normal read path — must see updated data
+        detail = self.db_reader.get_trip_detail(1)
+        self.assertIsNotNone(detail)
+        self.assertAlmostEqual(detail["distance_km"], 27.0, places=1,
+                               msg="get_trip_detail() returned stale pre-merge data (WAL cache bug)")
+
+    def test_merge_with_unknown_id_returns_empty(self):
+        result = self.db_reader.merge_trips(1, 999)
+        self.assertEqual(result, {})
+
+
 if __name__ == "__main__":
     unittest.main()
