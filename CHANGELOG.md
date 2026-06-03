@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.2.1
+
+- Fixed 500 error on trips page caused by `get_trips_grouped()` converting days dict to list after SQL rewrite.
+- Added regression test for trips grouped structure.
+
 ## 1.2.0
 
 - Added auto-merge for trips separated by a short gap (configurable, default 5 min).
