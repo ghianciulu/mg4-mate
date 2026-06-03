@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  sync-addon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve commit SHA for this tag
+        id: meta
+        run: |
+          SHA=$(git rev-parse --short=7 HEAD)
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Clone addon repo
+        run: |
+          git clone https://x-access-token:${{ secrets.ADDON_REPO_PAT }}@github.com/ghianciulu/mg4-mate-addon.git /tmp/addon
+          cd /tmp/addon
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+
+      - name: Update MATE_REF and addon version
+        run: |
+          SHA=${{ steps.meta.outputs.sha }}
+          VERSION=${{ steps.meta.outputs.version }}
+
+          # Update MATE_REF in Dockerfile
+          sed -i "s/^ARG MATE_REF=.*/ARG MATE_REF=${SHA}/" /tmp/addon/mg4_mate/Dockerfile
+
+          # Update version in config.yaml
+          sed -i "s/^version: \".*\"/version: \"${VERSION}\"/" /tmp/addon/mg4_mate/config.yaml
+
+      - name: Commit and push
+        run: |
+          cd /tmp/addon
+          git add mg4_mate/Dockerfile mg4_mate/config.yaml
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: bump to mg4-mate ${{ github.ref_name }} (${MATE_SHA})"
+          git push
+        env:
+          MATE_SHA: ${{ steps.meta.outputs.sha }}
