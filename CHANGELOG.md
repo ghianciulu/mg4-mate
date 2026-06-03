@@ -4,7 +4,7 @@
 
 ## 1.2.2
 
-## 1.2.1
+- Fixed trip merge button: replaced script redirect with HX-Redirect header, onsubmit with hx-confirm, and relative URL with absolute path.
 
 ## 1.2.1
 
