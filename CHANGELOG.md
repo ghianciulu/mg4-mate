@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.2.3
+
+- Fixed trip merge: stale WAL read caused merged trips to appear unchanged after redirect.
+- Fixed trip merge: added hx-swap="none" to merge forms to prevent HTMX swap interference.
+- Added 9 unit tests covering merge correctness and WAL cache invalidation.
+
 ## 1.2.2
 
 - Fixed trip merge button: replaced script redirect with HX-Redirect header, onsubmit with hx-confirm, and relative URL with absolute path.
