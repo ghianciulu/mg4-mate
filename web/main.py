@@ -366,7 +366,8 @@ async def merge_trip(request: Request, trip_id: int):
     result = db_reader.merge_trips(keep_id, drop_id)
     if not result:
         return HTMLResponse('<span class="text-red-400">Merge failed</span>')
-    return HTMLResponse("", headers={"HX-Redirect": f"/trips/{keep_id}"})
+    ingress = request.headers.get("x-ingress-path", "")
+    return HTMLResponse("", headers={"HX-Redirect": f"{ingress}/trips/{keep_id}"})
 
 
 @app.post("/api/poll-settings", response_class=HTMLResponse)
