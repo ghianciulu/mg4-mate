@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -449,6 +449,33 @@ async def boost(seconds: int = _BOOST_DEFAULT_S):
     until = time.time() + seconds
     db_reader.set_setting("boost_until", str(until))
     return {"status": "boost on", "seconds": seconds}
+
+
+# ── Charts page ───────────────────────────────────────────────────────────────
+
+@app.get("/charts", response_class=HTMLResponse)
+async def charts_page(request: Request):
+    return templates.TemplateResponse(request, "charts.html", _ctx(page="charts"))
+
+
+@app.get("/api/charts/soc-history")
+async def api_soc_history(days: int = 30):
+    return JSONResponse(db_reader.get_soc_history(days))
+
+
+@app.get("/api/charts/monthly-costs")
+async def api_monthly_costs():
+    return JSONResponse(db_reader.get_monthly_charge_costs())
+
+
+@app.get("/api/charts/efficiency-temp")
+async def api_efficiency_temp():
+    return JSONResponse(db_reader.get_efficiency_vs_temp())
+
+
+@app.get("/api/charts/trip-paths")
+async def api_trip_paths(limit: int = 200):
+    return JSONResponse(db_reader.get_trip_paths(limit))
 
 
 if __name__ == "__main__":
