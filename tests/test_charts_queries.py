@@ -219,3 +219,78 @@ class TestGetEfficiencyVsTemp(unittest.TestCase):
         self.assertIsNotNone(trip1)
         self.assertAlmostEqual(trip1["outside_temp"], 15.0, places=1)
         self.assertAlmostEqual(trip1["efficiency"], 18.5, places=1)
+
+
+class TestGetTripPaths(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self._tmp.close()
+        con = sqlite3.connect(self._tmp.name)
+        _base_schema(con)
+        con.executescript("""
+            CREATE TABLE trips (
+                id INTEGER PRIMARY KEY,
+                vehicle_id INTEGER,
+                started_at TEXT,
+                ended_at TEXT,
+                distance_km REAL,
+                efficiency_kwh_100km REAL
+            );
+            CREATE TABLE trip_positions (
+                id INTEGER PRIMARY KEY,
+                trip_id INTEGER,
+                latitude REAL,
+                longitude REAL,
+                recorded_at TEXT
+            );
+            INSERT INTO trips VALUES (1,1,'2026-05-01 09:00','2026-05-01 09:30',20.0,18.5);
+            INSERT INTO trip_positions VALUES (1,1,45.1,9.1,'2026-05-01 09:00');
+            INSERT INTO trip_positions VALUES (2,1,45.2,9.2,'2026-05-01 09:15');
+            INSERT INTO trip_positions VALUES (3,1,45.3,9.3,'2026-05-01 09:30');
+            INSERT INTO trips VALUES (2,1,'2026-05-02 10:00','2026-05-02 10:05',1.5,NULL);
+            INSERT INTO trip_positions VALUES (4,2,46.0,10.0,'2026-05-02 10:00');
+            INSERT INTO trips VALUES (3,1,'2026-05-03 11:00',NULL,0.0,NULL);
+            INSERT INTO trip_positions VALUES (5,3,47.0,11.0,'2026-05-03 11:00');
+            INSERT INTO trip_positions VALUES (6,3,47.1,11.1,'2026-05-03 11:05');
+        """)
+        con.commit()
+        con.close()
+        import db_reader
+        db_reader.DB_PATH = self._tmp.name
+        for attr in ("_ro_conn", "_rw_conn"):
+            conn = getattr(db_reader, attr, None)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            setattr(db_reader, attr, None)
+        self.dr = db_reader
+
+    def tearDown(self):
+        import db_reader
+        for attr in ("_ro_conn", "_rw_conn"):
+            conn = getattr(db_reader, attr, None)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            setattr(db_reader, attr, None)
+        os.unlink(self._tmp.name)
+
+    def test_returns_list(self):
+        self.assertIsInstance(self.dr.get_trip_paths(), list)
+
+    def test_excludes_single_position_trip(self):
+        ids = [r["trip_id"] for r in self.dr.get_trip_paths()]
+        self.assertNotIn(2, ids)
+
+    def test_excludes_open_trip(self):
+        ids = [r["trip_id"] for r in self.dr.get_trip_paths()]
+        self.assertNotIn(3, ids)
+
+    def test_trip1_correct_points(self):
+        result = self.dr.get_trip_paths()
+        trip1 = next((r for r in result if r["trip_id"] == 1), None)
+        self.assertIsNotNone(trip1)
+        self.assertEqual(len(trip1["points"]), 3)
+        self.assertEqual(trip1["points"][0], [45.1, 9.1])
+        self.assertAlmostEqual(trip1["efficiency"], 18.5, places=1)

@@ -644,6 +644,34 @@ def get_ac_dc_stats() -> dict:
     return {"ac": ac, "dc": dc, "total": ac["count"] + dc["count"]}
 
 
+def get_trip_paths(limit: int = 200) -> list[dict]:
+    db = _get()
+    trips = db.execute(
+        """SELECT id, efficiency_kwh_100km, started_at, distance_km
+           FROM trips
+           WHERE ended_at IS NOT NULL
+           ORDER BY started_at DESC
+           LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    result = []
+    for trip in trips:
+        pts = db.execute(
+            "SELECT latitude, longitude FROM trip_positions WHERE trip_id=? ORDER BY id",
+            (trip["id"],),
+        ).fetchall()
+        if len(pts) < 2:
+            continue
+        result.append({
+            "trip_id":     trip["id"],
+            "efficiency":  trip["efficiency_kwh_100km"],
+            "started_at":  trip["started_at"],
+            "distance_km": trip["distance_km"],
+            "points": [[p["latitude"], p["longitude"]] for p in pts],
+        })
+    return result
+
+
 def get_efficiency_vs_temp() -> list[dict]:
     db = _get()
     rows = db.execute(
