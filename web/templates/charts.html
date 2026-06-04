@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ t('charts_title') }} — MG4 Mate{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-white">{{ t('charts_title') }}</h1>
+</div>
+
+<!-- SOC History -->
+<div class="card mb-6">
+  <div class="flex items-center justify-between mb-4">
+    <div class="text-white font-semibold">🔋 {{ t('soc_history') }}</div>
+    <div class="flex gap-2" id="soc-period-btns">
+      {% for days, label in [(7, t('last_7d')), (30, t('last_30d')), (90, t('last_90d')), (0, t('all_time_label'))] %}
+      <button onclick="loadSoc({{ days }})" id="soc-btn-{{ days }}"
+              style="font-size:12px;padding:3px 12px;border-radius:9999px;border:1px solid #475569;color:#94a3b8;background:transparent;cursor:pointer;transition:all .15s"
+              onmouseover="this.style.color='white'" onmouseout="if(this.id!==activeSocBtn)this.style.color='#94a3b8'">
+        {{ label }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  <div id="soc-chart" style="min-height:220px"></div>
+</div>
+
+<!-- Monthly Costs -->
+<div class="card mb-6">
+  <div class="text-white font-semibold mb-4">💰 {{ t('monthly_costs') }}</div>
+  <div id="costs-chart" style="min-height:220px"></div>
+</div>
+
+<!-- Efficiency vs Temperature -->
+<div class="card mb-6">
+  <div class="text-white font-semibold mb-4">🌡️ {{ t('efficiency_vs_temp') }}</div>
+  <div id="efftemp-chart" style="min-height:280px"></div>
+</div>
+
+<!-- All Trips Map -->
+<div class="card">
+  <div class="text-white font-semibold mb-4">🗺️ {{ t('trip_paths') }}</div>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <div id="trips-map" style="height:500px;border-radius:12px;overflow:hidden"></div>
+  <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-400">
+    <span><span style="color:#22c55e">■</span> &lt;18 kWh/100km</span>
+    <span><span style="color:#f59e0b">■</span> 18–22 kWh/100km</span>
+    <span><span style="color:#ef4444">■</span> &gt;22 kWh/100km</span>
+    <span><span style="color:#64748b">■</span> {{ t('no_data') }}</span>
+  </div>
+</div>
+
+<script>
+let activeSocBtn = 'soc-btn-30';
+let socChart;
+
+function _setActiveSocBtn(days) {
+  activeSocBtn = 'soc-btn-' + days;
+  document.querySelectorAll('#soc-period-btns button').forEach(b => {
+    const active = b.id === activeSocBtn;
+    b.style.borderColor = active ? '#14b8a6' : '#475569';
+    b.style.color       = active ? '#14b8a6' : '#94a3b8';
+  });
+}
+
+async function loadSoc(days) {
+  _setActiveSocBtn(days);
+  const data = await fetch('api/charts/soc-history?days=' + days).then(r => r.json());
+  const series = data.map(d => [new Date(d.hour).getTime(), d.avg_soc]);
+  if (!socChart) {
+    socChart = new ApexCharts(document.getElementById('soc-chart'), {
+      series: [{ name: 'SOC %', data: series }],
+      chart: { type: 'area', height: 220, background: 'transparent', toolbar: { show: false }, zoom: { enabled: true } },
+      theme: { mode: 'dark' },
+      dataLabels: { enabled: false },
+      stroke: { curve: 'smooth', width: 2 },
+      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.02 } },
+      colors: ['#14b8a6'],
+      xaxis: { type: 'datetime', labels: { style: { colors: '#64748b' } } },
+      yaxis: { min: 0, max: 100, labels: { formatter: v => v + '%', style: { colors: '#64748b' } } },
+      grid: { borderColor: '#1e293b' },
+      tooltip: { x: { format: 'dd MMM HH:mm' }, y: { formatter: v => v + ' %' } },
+    });
+    socChart.render();
+  } else {
+    socChart.updateSeries([{ name: 'SOC %', data: series }]);
+  }
+}
+
+async function loadCosts() {
+  const data = await fetch('api/charts/monthly-costs').then(r => r.json());
+  const el = document.getElementById('costs-chart');
+  if (!data.length) {
+    el.innerHTML = '<div style="color:#64748b;text-align:center;padding:40px 0;font-size:13px">{{ t("no_cost_data") }}</div>';
+    return;
+  }
+  const months = [...new Set(data.map(d => d.month))].sort();
+  const typeMap = { HOME: { label: 'Home', color: '#22c55e' }, AC: { label: 'AC', color: '#60a5fa' }, FAST: { label: 'Fast DC', color: '#fb923c' }, HPC: { label: 'HPC', color: '#e879f9' } };
+  const series = Object.entries(typeMap)
+    .map(([type, meta]) => ({
+      name: meta.label, color: meta.color,
+      data: months.map(m => { const row = data.find(d => d.month === m && d.charge_type === type); return row && row.total_cost ? +row.total_cost : 0; }),
+    }))
+    .filter(s => s.data.some(v => v > 0));
+  new ApexCharts(el, {
+    series,
+    chart: { type: 'bar', height: 220, stacked: true, background: 'transparent', toolbar: { show: false } },
+    theme: { mode: 'dark' },
+    colors: series.map(s => s.color),
+    dataLabels: { enabled: false },
+    xaxis: { categories: months, labels: { style: { colors: '#64748b' } } },
+    yaxis: { labels: { formatter: v => '€' + v.toFixed(2), style: { colors: '#64748b' } } },
+    grid: { borderColor: '#1e293b' },
+    legend: { labels: { colors: '#94a3b8' } },
+    tooltip: { y: { formatter: v => '€' + (+v).toFixed(2) } },
+  }).render();
+}
+
+async function loadEffTemp() {
+  const data = await fetch('api/charts/efficiency-temp').then(r => r.json());
+  const el = document.getElementById('efftemp-chart');
+  if (!data.length) {
+    el.innerHTML = '<div style="color:#64748b;text-align:center;padding:40px 0;font-size:13px">{{ t("no_temp_data") }}</div>';
+    return;
+  }
+  const scatter = data.map(d => ({ x: d.outside_temp, y: d.efficiency, meta: { km: d.distance_km, date: (d.started_at || '').slice(0, 10) } }));
+  const n = data.length;
+  const sumX = data.reduce((s, d) => s + d.outside_temp, 0);
+  const sumY = data.reduce((s, d) => s + d.efficiency, 0);
+  const sumXY = data.reduce((s, d) => s + d.outside_temp * d.efficiency, 0);
+  const sumX2 = data.reduce((s, d) => s + d.outside_temp ** 2, 0);
+  const denom = n * sumX2 - sumX ** 2;
+  const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+  const intercept = (sumY - slope * sumX) / n;
+  const xs = data.map(d => d.outside_temp);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const trend = [{ x: xMin, y: +(slope * xMin + intercept).toFixed(2) }, { x: xMax, y: +(slope * xMax + intercept).toFixed(2) }];
+  new ApexCharts(el, {
+    series: [
+      { name: '{{ t("efficiency_axis") }}', type: 'scatter', data: scatter },
+      { name: 'Trend', type: 'line', data: trend },
+    ],
+    chart: { height: 280, background: 'transparent', toolbar: { show: false } },
+    theme: { mode: 'dark' },
+    colors: ['#f59e0b', '#64748b'],
+    dataLabels: { enabled: false },
+    stroke: { width: [0, 2], curve: 'straight', dashArray: [0, 6] },
+    markers: { size: [5, 0] },
+    xaxis: { title: { text: '{{ t("temp_axis") }} (°C)', style: { color: '#64748b', fontSize: '11px' } }, labels: { style: { colors: '#64748b' } } },
+    yaxis: { title: { text: '{{ t("efficiency_axis") }} (kWh/100km)', style: { color: '#64748b', fontSize: '11px' } }, labels: { style: { colors: '#64748b' } } },
+    grid: { borderColor: '#1e293b' },
+    legend: { labels: { colors: '#94a3b8' } },
+    tooltip: {
+      custom({ seriesIndex, dataPointIndex, w }) {
+        if (seriesIndex === 1) return '';
+        const d = w.config.series[0].data[dataPointIndex];
+        return `<div style="background:#1e293b;padding:8px 10px;border:1px solid #334155;font-size:12px;line-height:1.6"><b>${d.meta.date}</b><br>${d.meta.km} km — ${d.y} kWh/100km<br>${d.x}°C</div>`;
+      },
+    },
+  }).render();
+}
+
+async function loadMap() {
+  const data = await fetch('api/charts/trip-paths').then(r => r.json());
+  const container = document.getElementById('trips-map');
+  if (container._leaflet_id) container._leaflet_map.remove();
+  const map = L.map('trips-map');
+  container._leaflet_map = map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+  if (!data.length) { map.setView([45, 12], 6); return; }
+  const bounds = L.latLngBounds();
+  data.forEach(trip => {
+    if (!trip.points || trip.points.length < 2) return;
+    const eff = trip.efficiency;
+    const color = eff == null ? '#64748b' : eff < 18 ? '#22c55e' : eff < 22 ? '#f59e0b' : '#ef4444';
+    const line = L.polyline(trip.points, { color, weight: 3, opacity: 0.7 }).addTo(map);
+    const date = (trip.started_at || '').slice(0, 10);
+    const km = trip.distance_km ? (+trip.distance_km).toFixed(1) : '?';
+    const effStr = eff != null ? eff.toFixed(1) + ' kWh/100km' : '—';
+    line.bindPopup(`<b>${date}</b><br>${km} km — ${effStr}`);
+    trip.points.forEach(p => bounds.extend(p));
+  });
+  if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
+}
+
+loadSoc(30);
+loadCosts();
+loadEffTemp();
+loadMap();
+</script>
+{% endblock %}
