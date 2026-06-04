@@ -642,3 +642,30 @@ def get_ac_dc_stats() -> dict:
     ac["kwh"] = round(ac["kwh"], 1)
     dc["kwh"] = round(dc["kwh"], 1)
     return {"ac": ac, "dc": dc, "total": ac["count"] + dc["count"]}
+
+
+def get_soc_history(days: int = 30) -> list[dict]:
+    db = _get()
+    if days > 0:
+        rows = db.execute(
+            """SELECT
+                   strftime('%Y-%m-%dT%H:00:00', recorded_at) AS hour,
+                   ROUND(AVG(soc), 1) AS avg_soc
+               FROM positions
+               WHERE soc IS NOT NULL
+                 AND recorded_at >= datetime('now', ?)
+               GROUP BY hour
+               ORDER BY hour ASC""",
+            (f"-{days} days",),
+        ).fetchall()
+    else:
+        rows = db.execute(
+            """SELECT
+                   strftime('%Y-%m-%dT%H:00:00', recorded_at) AS hour,
+                   ROUND(AVG(soc), 1) AS avg_soc
+               FROM positions
+               WHERE soc IS NOT NULL
+               GROUP BY hour
+               ORDER BY hour ASC""",
+        ).fetchall()
+    return [dict(r) for r in rows]
