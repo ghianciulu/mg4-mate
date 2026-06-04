@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.0
+
 - Added Charts page (`/charts`) with four analytical sections:
   - SOC history linechart with 7d / 30d / 90d / all-time period selector.
   - Monthly charge costs stacked bar chart grouped by charge type (Home / AC / Fast / HPC).
