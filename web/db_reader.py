@@ -644,6 +644,31 @@ def get_ac_dc_stats() -> dict:
     return {"ac": ac, "dc": dc, "total": ac["count"] + dc["count"]}
 
 
+def get_monthly_charge_costs() -> list[dict]:
+    db = _get()
+    rows = db.execute(
+        """SELECT
+               strftime('%Y-%m', started_at) AS month,
+               COALESCE(location_type,
+                   CASE
+                       WHEN max_power_kw <= 8  THEN 'HOME'
+                       WHEN max_power_kw <= 22 THEN 'AC'
+                       WHEN max_power_kw <= 80 THEN 'FAST'
+                       ELSE 'HPC'
+                   END
+               ) AS charge_type,
+               ROUND(SUM(cost), 2)             AS total_cost,
+               ROUND(SUM(energy_added_kwh), 1) AS total_kwh,
+               COUNT(*)                         AS session_count
+           FROM charges
+           WHERE ended_at IS NOT NULL
+             AND started_at IS NOT NULL
+           GROUP BY month, charge_type
+           ORDER BY month ASC""",
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_soc_history(days: int = 30) -> list[dict]:
     db = _get()
     if days > 0:

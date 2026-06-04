@@ -80,3 +80,68 @@ class TestGetSocHistory(unittest.TestCase):
         # days=1 means last 1 day; all rows are old, should return empty
         result = self.dr.get_soc_history(days=1)
         self.assertEqual(result, [])
+
+
+class TestGetMonthlyChargeCosts(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self._tmp.close()
+        con = sqlite3.connect(self._tmp.name)
+        _base_schema(con)
+        con.executescript("""
+            CREATE TABLE charges (
+                id INTEGER PRIMARY KEY,
+                vehicle_id INTEGER,
+                started_at TEXT,
+                ended_at TEXT,
+                location_type TEXT,
+                max_power_kw REAL,
+                cost REAL,
+                energy_added_kwh REAL
+            );
+            INSERT INTO charges VALUES (1,1,'2026-05-10 20:00','2026-05-10 22:00','HOME',7.4,1.50,10.2);
+            INSERT INTO charges VALUES (2,1,'2026-05-15 12:00','2026-05-15 13:00',NULL,11.0,2.20,15.0);
+            INSERT INTO charges VALUES (3,1,'2026-06-01 21:00','2026-06-01 23:00','HOME',7.4,1.80,12.0);
+            INSERT INTO charges VALUES (4,1,'2026-06-02 08:00',NULL,'HOME',7.4,NULL,NULL);
+        """)
+        con.commit()
+        con.close()
+        import db_reader
+        db_reader.DB_PATH = self._tmp.name
+        for attr in ("_ro_conn", "_rw_conn"):
+            conn = getattr(db_reader, attr, None)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            setattr(db_reader, attr, None)
+        self.dr = db_reader
+
+    def tearDown(self):
+        import db_reader
+        for attr in ("_ro_conn", "_rw_conn"):
+            conn = getattr(db_reader, attr, None)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            setattr(db_reader, attr, None)
+        os.unlink(self._tmp.name)
+
+    def test_returns_list(self):
+        self.assertIsInstance(self.dr.get_monthly_charge_costs(), list)
+
+    def test_excludes_open_charges(self):
+        months = [r["month"] for r in self.dr.get_monthly_charge_costs()]
+        self.assertIn("2026-05", months)
+        self.assertIn("2026-06", months)
+
+    def test_may_home_cost(self):
+        result = self.dr.get_monthly_charge_costs()
+        row = next((r for r in result if r["month"] == "2026-05" and r["charge_type"] == "HOME"), None)
+        self.assertIsNotNone(row)
+        self.assertAlmostEqual(row["total_cost"], 1.50, places=2)
+
+    def test_infers_type_from_power(self):
+        result = self.dr.get_monthly_charge_costs()
+        row = next((r for r in result if r["month"] == "2026-05" and r["charge_type"] == "AC"), None)
+        self.assertIsNotNone(row, "Should infer AC type from max_power_kw=11")
