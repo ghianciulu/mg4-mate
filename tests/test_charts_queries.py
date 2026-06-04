@@ -145,3 +145,77 @@ class TestGetMonthlyChargeCosts(unittest.TestCase):
         result = self.dr.get_monthly_charge_costs()
         row = next((r for r in result if r["month"] == "2026-05" and r["charge_type"] == "AC"), None)
         self.assertIsNotNone(row, "Should infer AC type from max_power_kw=11")
+
+
+class TestGetEfficiencyVsTemp(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self._tmp.close()
+        con = sqlite3.connect(self._tmp.name)
+        _base_schema(con)
+        con.executescript("""
+            CREATE TABLE trips (
+                id INTEGER PRIMARY KEY,
+                vehicle_id INTEGER,
+                started_at TEXT,
+                ended_at TEXT,
+                distance_km REAL,
+                efficiency_kwh_100km REAL
+            );
+            CREATE TABLE positions (
+                id INTEGER PRIMARY KEY,
+                vehicle_id INTEGER,
+                recorded_at TEXT,
+                outside_temp REAL,
+                soc REAL
+            );
+            INSERT INTO positions VALUES (1,1,'2026-05-01 08:55:00',15.0,80.0);
+            INSERT INTO trips VALUES (1,1,'2026-05-01 09:00:00','2026-05-01 09:30:00',20.0,18.5);
+            INSERT INTO trips VALUES (2,1,'2026-01-01 08:00:00','2026-01-01 08:30:00',5.0,22.0);
+            INSERT INTO trips VALUES (3,1,'2026-05-02 10:00:00','2026-05-02 10:05:00',1.0,15.0);
+            INSERT INTO trips VALUES (4,1,'2026-05-03 11:00:00','2026-05-03 11:30:00',15.0,NULL);
+        """)
+        con.commit()
+        con.close()
+        import db_reader
+        db_reader.DB_PATH = self._tmp.name
+        for attr in ("_ro_conn", "_rw_conn"):
+            conn = getattr(db_reader, attr, None)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            setattr(db_reader, attr, None)
+        self.dr = db_reader
+
+    def tearDown(self):
+        import db_reader
+        for attr in ("_ro_conn", "_rw_conn"):
+            conn = getattr(db_reader, attr, None)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            setattr(db_reader, attr, None)
+        os.unlink(self._tmp.name)
+
+    def test_returns_list(self):
+        self.assertIsInstance(self.dr.get_efficiency_vs_temp(), list)
+
+    def test_excludes_no_temp(self):
+        ids = [r["id"] for r in self.dr.get_efficiency_vs_temp()]
+        self.assertNotIn(2, ids)
+
+    def test_excludes_short_trips(self):
+        ids = [r["id"] for r in self.dr.get_efficiency_vs_temp()]
+        self.assertNotIn(3, ids)
+
+    def test_excludes_no_efficiency(self):
+        ids = [r["id"] for r in self.dr.get_efficiency_vs_temp()]
+        self.assertNotIn(4, ids)
+
+    def test_correct_temp_lookup(self):
+        result = self.dr.get_efficiency_vs_temp()
+        trip1 = next((r for r in result if r["id"] == 1), None)
+        self.assertIsNotNone(trip1)
+        self.assertAlmostEqual(trip1["outside_temp"], 15.0, places=1)
+        self.assertAlmostEqual(trip1["efficiency"], 18.5, places=1)

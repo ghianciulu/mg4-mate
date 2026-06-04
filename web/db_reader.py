@@ -644,6 +644,29 @@ def get_ac_dc_stats() -> dict:
     return {"ac": ac, "dc": dc, "total": ac["count"] + dc["count"]}
 
 
+def get_efficiency_vs_temp() -> list[dict]:
+    db = _get()
+    rows = db.execute(
+        """SELECT
+               t.id,
+               ROUND(t.efficiency_kwh_100km, 2) AS efficiency,
+               ROUND(t.distance_km, 1)           AS distance_km,
+               t.started_at,
+               (SELECT p.outside_temp
+                FROM positions p
+                WHERE p.recorded_at <= t.started_at
+                  AND p.outside_temp IS NOT NULL
+                ORDER BY p.recorded_at DESC LIMIT 1) AS outside_temp
+           FROM trips t
+           WHERE t.ended_at IS NOT NULL
+             AND t.efficiency_kwh_100km IS NOT NULL
+             AND t.distance_km >= 2
+           ORDER BY t.started_at DESC
+           LIMIT 500""",
+    ).fetchall()
+    return [dict(r) for r in rows if r["outside_temp"] is not None]
+
+
 def get_monthly_charge_costs() -> list[dict]:
     db = _get()
     rows = db.execute(
