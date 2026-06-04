@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added Charts page (`/charts`) with four analytical sections:
+  - SOC history linechart with 7d / 30d / 90d / all-time period selector.
+  - Monthly charge costs stacked bar chart grouped by charge type (Home / AC / Fast / HPC).
+  - Efficiency vs outside temperature scatter chart with linear regression trend line.
+  - All-trips polyline map (last 200 trips), colour-coded by efficiency; click for details.
+
 ## 1.3.2
 
 - Replaced battery temperature with outside temperature on overview status card; AC target temperature kept.
