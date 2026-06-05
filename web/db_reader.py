@@ -5,12 +5,31 @@ from datetime import datetime, timezone
 from typing import Optional
 import os
 
+try:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except ImportError:
+    ZoneInfo = None  # type: ignore[assignment,misc]
+    ZoneInfoNotFoundError = Exception  # type: ignore[assignment,misc]
+
+
+def _display_tz():
+    """Return ZoneInfo for the HA-configured timezone, or None to fall back to system local."""
+    try:
+        tz_name = get_setting("display_timezone")
+        if tz_name and ZoneInfo:
+            return ZoneInfo(tz_name)
+    except Exception:
+        pass
+    return None
+
+
 def _parse_local(ts: str) -> datetime:
     """Parse a UTC ISO timestamp and return a local-time datetime."""
     dt = datetime.fromisoformat(ts.replace(" ", "T").replace("Z", "+00:00"))
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone()
+    tz = _display_tz()
+    return dt.astimezone(tz) if tz else dt.astimezone()
 
 
 CHARGE_TYPES = {

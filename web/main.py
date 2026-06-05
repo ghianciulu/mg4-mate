@@ -29,7 +29,8 @@ def _localts_filter(ts) -> str:
         dt = datetime.fromisoformat(str(ts).replace(" ", "T").replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone().isoformat()
+        tz = db_reader._display_tz()
+        return (dt.astimezone(tz) if tz else dt.astimezone()).isoformat()
     except Exception:
         return str(ts)
 

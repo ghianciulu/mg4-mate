@@ -70,6 +70,12 @@ def main():
     if capacity:
         db.set_battery_capacity(capacity)
     db.set_setting("vehicle_source", "homeassistant")
+
+    tz = client.get_ha_timezone()
+    if tz:
+        db.set_setting("display_timezone", tz)
+        log.info("Display timezone: %s", tz)
+
     db.mark_setup_complete()
 
     # Crash/restart recovery for open trips/charges happens on the first poll inside

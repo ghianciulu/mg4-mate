@@ -51,6 +51,20 @@ class HomeAssistantMateClient:
         )
         log.info("Home Assistant source ready — VIN: %s model: MG4", self._vehicle.vin)
 
+    def get_ha_timezone(self) -> str | None:
+        """Return the IANA timezone name configured in Home Assistant (e.g. 'Europe/Rome')."""
+        if not self._ha_url or not self._token:
+            return None
+        headers = {"Authorization": f"Bearer {self._token}", "Content-Type": "application/json"}
+        req = urllib.request.Request(f"{self._ha_url}/api/config", headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            return data.get("time_zone") or None
+        except Exception as exc:
+            log.warning("Could not fetch HA timezone: %s", exc)
+            return None
+
     def get_status(self) -> VehicleData:
         states = self._state_map(self._fetch_states())
 
