@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fixed trip distance when SAIC gateway was inactive: `finalize_trip` now uses `max(GPS haversine, odometer delta)` so trips where the gateway didn't update speed/position still record the correct distance.
+- Hidden sub-0.1 km trips from the trips list and overview: micro-trips created by `vehicle_running` oscillation while the gateway is inactive no longer appear in the UI.
+
 ## 1.4.3
 
 - Added ghost trip detection: when the odometer increases while the car is parked (missed by the SAIC gateway), MG4 Mate automatically creates an untracked trip record with the estimated distance. Untracked trips are shown with a ⚠️ badge in the trips list.

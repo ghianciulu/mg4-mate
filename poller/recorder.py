@@ -3,6 +3,7 @@ Recorder: reacts to state machine events to persist trips, charges, and position
 """
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Optional
 
 from db import Database, _now_iso
@@ -37,6 +38,16 @@ class Recorder:
         self._sm.poll_parked = parked
         self._sm.poll_driving = driving
 
+    @staticmethod
+    def _within_seconds(iso_ts: str, seconds: int) -> bool:
+        try:
+            dt = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return (datetime.now(timezone.utc) - dt).total_seconds() <= seconds
+        except Exception:
+            return False
+
     def _resume_or_close(self, data: VehicleData) -> None:
         """At startup, reconcile sessions left open by a previous run (poller/HA
         restart, crash). If the activity is STILL ongoing, RESUME the open session
@@ -58,9 +69,19 @@ class Recorder:
         open_trip = self._db.get_open_trip(self._vehicle_id)
         if open_trip:
             if is_driving and not is_charging:
-                self._active_trip_id = open_trip["id"]
-                self._sm.state = State.DRIVING
-                log.info("Resumed open trip #%d (car still driving)", open_trip["id"])
+                gap_min = int(self._db.get_setting_value('trip_merge_gap_min', '5'))
+                last_pos_at = self._db.get_last_trip_position_time(open_trip["id"])
+                ref_ts = last_pos_at or open_trip["started_at"]
+                if self._within_seconds(ref_ts, gap_min * 60):
+                    self._active_trip_id = open_trip["id"]
+                    self._sm.state = State.DRIVING
+                    log.info("Resumed open trip #%d (car still driving)", open_trip["id"])
+                else:
+                    log.warning(
+                        "Open trip #%d is stale (last activity: %s) — closing as orphan",
+                        open_trip["id"], ref_ts,
+                    )
+                    self._db.close_orphan_trips(self._vehicle_id)
             else:
                 self._db.close_orphan_trips(self._vehicle_id)
 

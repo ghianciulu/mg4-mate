@@ -328,13 +328,20 @@ class Database:
             (trip_id,),
         ).fetchall()
 
-        distance_km = sum(
+        gps_km = sum(
             haversine_km(rows[i]["latitude"], rows[i]["longitude"],
                          rows[i + 1]["latitude"], rows[i + 1]["longitude"])
             for i in range(len(rows) - 1)
         )
 
         trip = self._conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
+
+        # Fallback: use odometer delta when GPS positions are stale/missing (gateway inactive)
+        odo_delta = 0.0
+        if data.odometer_km and trip["start_odometer_km"]:
+            odo_delta = max(0.0, data.odometer_km - trip["start_odometer_km"])
+        distance_km = max(gps_km, odo_delta)
+
         start_soc = trip["start_soc"]
         energy_used_kwh = (start_soc - data.soc) / 100.0 * self.get_battery_capacity()
         efficiency = (energy_used_kwh / distance_km * 100) if distance_km > 0.5 else None
@@ -622,17 +629,26 @@ class Database:
     def get_open_trip(self, vehicle_id: int):
         """Latest trip left open (ended_at NULL), or None."""
         return self._conn.execute(
-            "SELECT id FROM trips WHERE vehicle_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1",
+            "SELECT id, started_at FROM trips WHERE vehicle_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1",
             (vehicle_id,),
         ).fetchone()
 
+    def get_last_trip_position_time(self, trip_id: int) -> Optional[str]:
+        """Return recorded_at of the most recent GPS point for a trip, or None."""
+        row = self._conn.execute(
+            "SELECT recorded_at FROM trip_positions WHERE trip_id=? ORDER BY id DESC LIMIT 1",
+            (trip_id,),
+        ).fetchone()
+        return row["recorded_at"] if row else None
+
     def get_recent_ended_trip(self, vehicle_id: int, within_seconds: int):
-        """Return the most recently ended trip if it ended within `within_seconds` ago."""
+        """Return the most recently ended non-ghost trip if it ended within `within_seconds` ago."""
         from datetime import datetime, timedelta, timezone
-        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=within_seconds)).strftime('%Y-%m-%d %H:%M:%S')
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=within_seconds)).strftime('%Y-%m-%dT%H:%M:%S')
         row = self._conn.execute(
             """SELECT * FROM trips
                WHERE vehicle_id=? AND ended_at IS NOT NULL AND ended_at >= ?
+               AND (untracked IS NULL OR untracked = 0)
                ORDER BY ended_at DESC LIMIT 1""",
             (vehicle_id, cutoff)
         ).fetchone()

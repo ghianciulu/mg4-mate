@@ -239,7 +239,7 @@ def get_trips(limit: int = 500) -> list[dict]:
     db = _get()
     rows = db.execute(
         """SELECT * FROM trips
-           WHERE ended_at IS NOT NULL
+           WHERE ended_at IS NOT NULL AND COALESCE(distance_km, 0) >= 0.1
            ORDER BY started_at DESC
            LIMIT ?""",
         (limit,),
@@ -266,7 +266,7 @@ def get_trips_grouped() -> list[dict]:
                 1
             ) AS avg_eff
         FROM trips
-        WHERE ended_at IS NOT NULL
+        WHERE ended_at IS NOT NULL AND COALESCE(distance_km, 0) >= 0.1
         GROUP BY yr, mo_key, day_key
         ORDER BY started_at DESC
     """).fetchall()
@@ -277,7 +277,7 @@ def get_trips_grouped() -> list[dict]:
                efficiency_kwh_100km, start_soc, end_soc,
                COALESCE(untracked, 0) AS untracked
         FROM trips
-        WHERE ended_at IS NOT NULL
+        WHERE ended_at IS NOT NULL AND COALESCE(distance_km, 0) >= 0.1
         ORDER BY started_at DESC
     """).fetchall()
     trips_by_day: dict = {}
