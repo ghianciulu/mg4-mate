@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -18,6 +19,22 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+def _localts_filter(ts) -> str:
+    """Convert a UTC ISO timestamp string to a local-time ISO string for display."""
+    if not ts:
+        return str(ts or "")
+    try:
+        dt = datetime.fromisoformat(str(ts).replace(" ", "T").replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone().isoformat()
+    except Exception:
+        return str(ts)
+
+
+templates.env.filters["localts"] = _localts_filter
 
 
 # ── Setup check middleware ────────────────────────────────────────────────────

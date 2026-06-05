@@ -90,9 +90,9 @@
                 <div style="width:4px;height:32px;background:#e63946;border-radius:2px;flex-shrink:0"></div>
                 <div>
                   <div class="text-white text-sm font-medium">
-                    {{ trip.started_at[11:16] if trip.started_at else '—' }}
+                    {{ (trip.started_at | localts)[11:16] if trip.started_at else '—' }}
                     <span class="text-slate-500 font-normal text-xs ml-1">
-                      → {{ trip.ended_at[11:16] if trip.ended_at else '' }}
+                      → {{ (trip.ended_at | localts)[11:16] if trip.ended_at else '' }}
                     </span>
                   </div>
                   <div class="text-slate-500 text-xs">{{ "%.0f"|format(trip.duration_min or 0) }} min</div>

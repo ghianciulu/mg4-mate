@@ -5,6 +5,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "web"))
@@ -73,8 +74,10 @@ class TestGetSocHistory(unittest.TestCase):
     def test_hourly_average(self):
         result = self.dr.get_soc_history(days=0)
         hours = {r["hour"]: r["avg_soc"] for r in result}
-        self.assertIn("2026-05-01T08:00:00", hours)
-        self.assertAlmostEqual(hours["2026-05-01T08:00:00"], 60.0, places=1)
+        # Stored as naive UTC '2026-05-01 08:00:00'; query applies 'localtime' conversion
+        expected = datetime(2026, 5, 1, 8, 0, tzinfo=timezone.utc).astimezone().strftime("%Y-%m-%dT%H:00:00")
+        self.assertIn(expected, hours)
+        self.assertAlmostEqual(hours[expected], 60.0, places=1)
 
     def test_days_filter(self):
         # days=1 means last 1 day; all rows are old, should return empty

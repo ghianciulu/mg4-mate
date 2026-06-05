@@ -220,8 +220,8 @@ fetch('api/charge-plan').then(r => r.json()).then(d => {
                   <div style="width:4px;height:40px;background:#fbbf24;border-radius:2px;flex-shrink:0"></div>
                   <div class="min-w-0">
                     <div class="text-white font-semibold text-sm">
-                      {{ c.started_at[11:16] if c.started_at else '—' }}
-                      <span class="text-slate-500 font-normal">→ {{ c.ended_at[11:16] if c.ended_at else '' }}</span>
+                      {{ (c.started_at | localts)[11:16] if c.started_at else '—' }}
+                      <span class="text-slate-500 font-normal">→ {{ (c.ended_at | localts)[11:16] if c.ended_at else '' }}</span>
                     </div>
                     <div class="text-slate-500 text-xs mt-0.5">
                       ⏱ {% if dur_h > 0 %}{{ dur_h }}h {% endif %}{{ dur_m }}min

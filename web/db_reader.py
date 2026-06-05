@@ -5,6 +5,14 @@ from datetime import datetime, timezone
 from typing import Optional
 import os
 
+def _parse_local(ts: str) -> datetime:
+    """Parse a UTC ISO timestamp and return a local-time datetime."""
+    dt = datetime.fromisoformat(ts.replace(" ", "T").replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone()
+
+
 CHARGE_TYPES = {
     "HOME": {"label": "Home",       "icon": "🏠", "color": "#22c55e"},
     "AC":   {"label": "AC Public",  "icon": "🔌", "color": "#60a5fa"},
@@ -228,9 +236,9 @@ def get_trips_grouped() -> list[dict]:
     # Aggregate counts/km/efficiency per day in SQL
     agg_rows = db.execute("""
         SELECT
-            strftime('%Y', started_at)       AS yr,
-            strftime('%Y-%m', started_at)    AS mo_key,
-            date(started_at)                 AS day_key,
+            strftime('%Y', started_at, 'localtime')       AS yr,
+            strftime('%Y-%m', started_at, 'localtime')    AS mo_key,
+            date(started_at, 'localtime')                 AS day_key,
             COUNT(*)                         AS count,
             ROUND(SUM(distance_km), 1)       AS km,
             ROUND(
@@ -258,9 +266,7 @@ def get_trips_grouped() -> list[dict]:
         if not t.get("started_at"):
             continue
         try:
-            day_key = datetime.fromisoformat(
-                t["started_at"].replace(" ", "T").rstrip("Z")
-            ).strftime("%Y-%m-%d")
+            day_key = _parse_local(t["started_at"]).strftime("%Y-%m-%d")
         except Exception:
             continue
         trips_by_day.setdefault(day_key, []).append(t)
@@ -420,7 +426,7 @@ def get_stats_grouped() -> list[dict]:
         if not t.get("started_at"):
             continue
         try:
-            dt = datetime.fromisoformat(t["started_at"].replace(" ", "T").rstrip("Z"))
+            dt = _parse_local(t["started_at"])
         except Exception:
             continue
         yr, mo_key = dt.strftime("%Y"), dt.strftime("%Y-%m")
@@ -435,7 +441,7 @@ def get_monthly_stats() -> list[dict]:
     db = _get()
     rows = db.execute(
         """SELECT
-               strftime('%Y-%m', started_at) AS month,
+               strftime('%Y-%m', started_at, 'localtime') AS month,
                COUNT(*)                       AS trip_count,
                ROUND(SUM(distance_km), 1)     AS total_km,
                ROUND(SUM(CASE WHEN efficiency_kwh_100km IS NOT NULL
@@ -467,7 +473,7 @@ def get_charges_grouped() -> list[dict]:
         if not c.get("started_at"):
             continue
         try:
-            dt = datetime.fromisoformat(c["started_at"].replace(" ", "T").rstrip("Z"))
+            dt = _parse_local(c["started_at"])
         except Exception:
             continue
 
@@ -662,10 +668,11 @@ def get_trip_paths(limit: int = 200) -> list[dict]:
         ).fetchall()
         if len(pts) < 2:
             continue
+        local_ts = _parse_local(trip["started_at"]).isoformat() if trip["started_at"] else None
         result.append({
             "trip_id":     trip["id"],
             "efficiency":  trip["efficiency_kwh_100km"],
-            "started_at":  trip["started_at"],
+            "started_at":  local_ts,
             "distance_km": trip["distance_km"],
             "points": [[p["latitude"], p["longitude"]] for p in pts],
         })
@@ -692,14 +699,22 @@ def get_efficiency_vs_temp() -> list[dict]:
            ORDER BY t.started_at DESC
            LIMIT 500""",
     ).fetchall()
-    return [dict(r) for r in rows if r["outside_temp"] is not None]
+    result = []
+    for r in rows:
+        if r["outside_temp"] is None:
+            continue
+        d = dict(r)
+        if d.get("started_at"):
+            d["started_at"] = _parse_local(d["started_at"]).isoformat()
+        result.append(d)
+    return result
 
 
 def get_monthly_charge_costs() -> list[dict]:
     db = _get()
     rows = db.execute(
         """SELECT
-               strftime('%Y-%m', started_at) AS month,
+               strftime('%Y-%m', started_at, 'localtime') AS month,
                COALESCE(location_type,
                    CASE
                        WHEN max_power_kw <= 8  THEN 'HOME'
@@ -725,7 +740,7 @@ def get_soc_history(days: int = 30) -> list[dict]:
     if days > 0:
         rows = db.execute(
             """SELECT
-                   strftime('%Y-%m-%dT%H:00:00', recorded_at) AS hour,
+                   strftime('%Y-%m-%dT%H:00:00', recorded_at, 'localtime') AS hour,
                    ROUND(AVG(soc), 1) AS avg_soc
                FROM positions
                WHERE soc IS NOT NULL
@@ -737,7 +752,7 @@ def get_soc_history(days: int = 30) -> list[dict]:
     else:
         rows = db.execute(
             """SELECT
-                   strftime('%Y-%m-%dT%H:00:00', recorded_at) AS hour,
+                   strftime('%Y-%m-%dT%H:00:00', recorded_at, 'localtime') AS hour,
                    ROUND(AVG(soc), 1) AS avg_soc
                FROM positions
                WHERE soc IS NOT NULL

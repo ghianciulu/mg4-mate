@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed timezone display: all trip/charge timestamps were shown in UTC instead of local time. SQLite queries now use the `'localtime'` modifier; Python formatting uses `astimezone()`; Jinja2 templates use a new `localts` filter.
+
 ## 1.4.0
 
 - Added Charts page (`/charts`) with four analytical sections:

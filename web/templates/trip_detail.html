@@ -6,8 +6,8 @@
   <a href="trips?highlight={{ trip.id }}" class="text-slate-400 hover:text-white text-sm">{{ t('back_trips') }}</a>
   <span class="text-slate-600">/</span>
   <h1 class="text-xl font-bold text-white">
-    {{ trip.started_at[:10] if trip.started_at else 'Trip' }}
-    <span class="text-slate-400 font-normal text-base ml-1">{{ trip.started_at[11:16] if trip.started_at else '' }}</span>
+    {{ (trip.started_at | localts)[:10] if trip.started_at else 'Trip' }}
+    <span class="text-slate-400 font-normal text-base ml-1">{{ (trip.started_at | localts)[11:16] if trip.started_at else '' }}</span>
   </h1>
 </div>
 
@@ -69,7 +69,7 @@
           <div class="flex items-center justify-between">
             <div>
               <div class="text-xs text-slate-400">← {{ t('merge_with_prev') }}</div>
-              <div class="text-xs text-slate-600">{{ prev_trip.started_at[11:16] if prev_trip.started_at else '?' }} · {{ "%.1f"|format(prev_trip.distance_km or 0) }} km</div>
+              <div class="text-xs text-slate-600">{{ (prev_trip.started_at | localts)[11:16] if prev_trip.started_at else '?' }} · {{ "%.1f"|format(prev_trip.distance_km or 0) }} km</div>
             </div>
             <button type="submit" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">{{ t('merge_trips') }}</button>
           </div>
@@ -83,7 +83,7 @@
           <div class="flex items-center justify-between">
             <div>
               <div class="text-xs text-slate-400">→ {{ t('merge_with_next') }}</div>
-              <div class="text-xs text-slate-600">{{ next_trip.started_at[11:16] if next_trip.started_at else '?' }} · {{ "%.1f"|format(next_trip.distance_km or 0) }} km</div>
+              <div class="text-xs text-slate-600">{{ (next_trip.started_at | localts)[11:16] if next_trip.started_at else '?' }} · {{ "%.1f"|format(next_trip.distance_km or 0) }} km</div>
             </div>
             <button type="submit" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">{{ t('merge_trips') }}</button>
           </div>
