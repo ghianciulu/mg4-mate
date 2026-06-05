@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.3
+
 - Added ghost trip detection: when the odometer increases while the car is parked (missed by the SAIC gateway), MG4 Mate automatically creates an untracked trip record with the estimated distance. Untracked trips are shown with a ⚠️ badge in the trips list.
 
 ## 1.4.2
