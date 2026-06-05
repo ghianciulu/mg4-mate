@@ -7,7 +7,7 @@
 ## 1.4.3
 
 - Added ghost trip detection: when the odometer increases while the car is parked (missed by the SAIC gateway), MG4 Mate automatically creates an untracked trip record with the estimated distance. Untracked trips are shown with a ⚠️ badge in the trips list.
-- Added `ha_automations/saic_gateway_commute_boost.yaml`: one-shot HA script to permanently lower `gateway_inactive_refresh_period` from 86400 s (24 h) to 120 s, preventing the SAIC gateway from missing trip starts when the car wakes from sleep.
+- Added `ha_automations/saic_gateway_commute_boost.yaml`: one-shot HA script to permanently lower `gateway_inactive_refresh_period` from 86400 s (24 h) to 3600 s (1 h, gateway minimum), preventing the SAIC gateway from missing trip starts when the car wakes from sleep.
 
 ## 1.4.2
 

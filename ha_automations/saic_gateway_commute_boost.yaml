@@ -7,34 +7,34 @@
 # vehicle_running = on e il viaggio non viene registrato.
 #
 # SOLUZIONE
-# Abbassa il periodo a 120s una volta sola. Il polling è verso la SAIC cloud
-# API (non sveglia fisicamente la macchina), quindi 120s è sicuro.
+# Abbassa il periodo a 3600s (1h, minimo consentito dal gateway) una volta sola.
+# Il polling è verso la SAIC cloud API (non sveglia fisicamente la macchina).
 #
-# COME APPLICARE (una tantum, da HA Strumenti sviluppatore → Servizi):
+# COME APPLICARE (una tantum, da HA Strumenti sviluppatori → Servizi):
 #
 #   service: number.set_value
 #   target:
 #     entity_id: number.lsjwh4097rn111393_gateway_inactive_refresh_period
 #   data:
-#     value: 120
+#     value: 3600
 #
 # Oppure usa lo script completo qui sotto per avere un log nel logbook HA.
 
-alias: "MG4 - Imposta gateway inactive refresh 120s"
+alias: "MG4 - Imposta gateway inactive refresh 3600s"
 description: >
-  Abbassa gateway_inactive_refresh_period a 120s (default: 86400s).
+  Abbassa gateway_inactive_refresh_period a 3600s (minimo gateway, default: 86400s).
   Eseguire una sola volta — il valore persiste nel gateway SAIC.
 mode: single
 
-trigger: []   # nessun trigger: esegui manualmente da Strumenti sviluppatore
+trigger: []   # nessun trigger: esegui manualmente da Strumenti sviluppatori
 
 action:
   - service: number.set_value
     target:
       entity_id: number.lsjwh4097rn111393_gateway_inactive_refresh_period
     data:
-      value: 120
+      value: 3600
   - service: logbook.log
     data:
       name: "MG4 Gateway"
-      message: "gateway_inactive_refresh_period impostato a 120s (era 86400s)"
+      message: "gateway_inactive_refresh_period impostato a 3600s (era 86400s)"
