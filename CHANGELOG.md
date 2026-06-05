@@ -4,6 +4,8 @@
 
 ## 1.4.4
 
+## 1.4.4
+
 - Fixed trip distance when SAIC gateway was inactive: `finalize_trip` now uses `max(GPS haversine, odometer delta)` so trips where the gateway didn't update speed/position still record the correct distance.
 - Hidden sub-0.1 km trips from the trips list and overview: micro-trips created by `vehicle_running` oscillation while the gateway is inactive no longer appear in the UI.
 - Fixed stale open trip being resumed on addon restart: `_resume_or_close` now checks the last recorded GPS point timestamp; if older than `trip_merge_gap_min`, the orphan is closed and a fresh trip is created instead of continuing the old one.
