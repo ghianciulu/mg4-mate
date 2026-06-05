@@ -98,6 +98,7 @@ _T: dict[str, dict[str, str]] = {
         "trip_singular":        "trip",
         "trips_plural":         "trips",
         "map_arrow":            "🗺 Map →",
+        "untracked_trip":       "Untracked",
         # Trip detail
         "back_trips":           "← Trips",
         "distance":             "Distance",
@@ -365,6 +366,7 @@ _T: dict[str, dict[str, str]] = {
         "trip_singular":        "viaggio",
         "trips_plural":         "viaggi",
         "map_arrow":            "🗺 Mappa →",
+        "untracked_trip":       "Non registrato",
         # Trip detail
         "back_trips":           "← Viaggi",
         "distance":             "Distanza",

@@ -24,18 +24,19 @@ def _make_db(path: str) -> None:
             efficiency_kwh_100km REAL,
             start_soc       REAL,
             end_soc         REAL,
-            regen_kwh       REAL
+            regen_kwh       REAL,
+            untracked       INTEGER DEFAULT 0
         );
         CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE vehicles  (id INTEGER PRIMARY KEY, vin TEXT, car_type TEXT);
         INSERT INTO settings VALUES ('setup_complete', '1');
         -- Two trips on 2026-06-01, one on 2026-06-02
         INSERT INTO trips VALUES (1, '2026-06-01 08:00:00', '2026-06-01 08:30:00',
-                                  20.0, 30, 16.0, 80, 70, 0.5);
+                                  20.0, 30, 16.0, 80, 70, 0.5, 0);
         INSERT INTO trips VALUES (2, '2026-06-01 17:00:00', '2026-06-01 17:45:00',
-                                  25.0, 45, 18.0, 65, 52, 0.8);
+                                  25.0, 45, 18.0, 65, 52, 0.8, 0);
         INSERT INTO trips VALUES (3, '2026-06-02 09:00:00', '2026-06-02 09:40:00',
-                                  30.0, 40, 20.0, 90, 75, 1.0);
+                                  30.0, 40, 20.0, 90, 75, 1.0, 0);
     """)
     con.commit()
     con.close()

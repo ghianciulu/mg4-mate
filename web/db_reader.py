@@ -274,7 +274,8 @@ def get_trips_grouped() -> list[dict]:
     # Individual trip rows for day-level trip lists
     trip_rows = db.execute("""
         SELECT id, started_at, ended_at, distance_km, duration_min,
-               efficiency_kwh_100km, start_soc, end_soc
+               efficiency_kwh_100km, start_soc, end_soc,
+               COALESCE(untracked, 0) AS untracked
         FROM trips
         WHERE ended_at IS NOT NULL
         ORDER BY started_at DESC

@@ -94,6 +94,7 @@
                     <span class="text-slate-500 font-normal text-xs ml-1">
                       → {{ (trip.ended_at | localts)[11:16] if trip.ended_at else '' }}
                     </span>
+                    {% if trip.untracked %}<span class="text-xs text-amber-400 ml-1">⚠️ untracked</span>{% endif %}
                   </div>
                   <div class="text-slate-500 text-xs">{{ "%.0f"|format(trip.duration_min or 0) }} min</div>
                 </div>

@@ -5,7 +5,7 @@ import logging
 import time
 from typing import Optional
 
-from db import Database
+from db import Database, _now_iso
 from state_machine import State, StateMachine, StateEvent, _PARKED_STATES
 from vehicle_data import VehicleData
 
@@ -23,6 +23,7 @@ class Recorder:
         self._max_charge_kw: float = 0.0
         self._started: bool = False
         self._last_process_ts: float = 0.0
+        self._last_odo: Optional[float] = None
 
     @property
     def state(self) -> State:
@@ -74,6 +75,24 @@ class Recorder:
             self._resume_or_close(data)
 
         self._db.save_position(self._vehicle_id, data)
+
+        # Ghost trip detection: odometer jumped while parked and no active trip
+        if (
+            self._sm.state in _PARKED_STATES
+            and not self._active_trip_id
+            and data.odometer_km
+        ):
+            if self._last_odo is not None and data.odometer_km - self._last_odo >= 0.5:
+                delta = data.odometer_km - self._last_odo
+                prev_recorded_at = self._db.get_last_position_recorded_at(self._vehicle_id)
+                started_at = prev_recorded_at or _now_iso()
+                self._db.create_ghost_trip(self._vehicle_id, delta, started_at, _now_iso())
+                log.warning(
+                    "Ghost trip detected: %.1f km (odometer %.1f → %.1f)",
+                    delta, self._last_odo, data.odometer_km,
+                )
+        if data.odometer_km:
+            self._last_odo = data.odometer_km
 
         events = self._sm.update(data)
         for event in events:

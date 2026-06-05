@@ -194,6 +194,11 @@ class Database:
         ]:
             if col not in cols:
                 self._conn.execute(f"ALTER TABLE positions ADD COLUMN {col} {defn}")
+        # migration: add untracked flag to trips (ghost trips detected via odometer jump)
+        try:
+            self._conn.execute("ALTER TABLE trips ADD COLUMN untracked INTEGER DEFAULT 0")
+        except Exception:
+            pass  # column already exists on existing DBs
         self._conn.commit()
         log.info("Database ready: %s", path)
 
@@ -593,6 +598,26 @@ class Database:
             "WHERE vehicle_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1",
             (vehicle_id,),
         ).fetchone()
+
+    def create_ghost_trip(self, vehicle_id: int, dist_km: float, started_at: str, ended_at: str) -> int:
+        """Create a trip record for driving that wasn't captured live (odometer jump while parked)."""
+        cur = self._conn.execute(
+            """INSERT INTO trips (vehicle_id, started_at, ended_at, distance_km, untracked)
+               VALUES (?,?,?,?,1)""",
+            (vehicle_id, started_at, ended_at, round(dist_km, 3)),
+        )
+        self._conn.commit()
+        trip_id = cur.lastrowid
+        log.info("Ghost trip #%d created — %.1f km (%s → %s)", trip_id, dist_km, started_at, ended_at)
+        return trip_id
+
+    def get_last_position_recorded_at(self, vehicle_id: int) -> Optional[str]:
+        """Return the second-to-last recorded_at for the given vehicle (used as ghost trip start time)."""
+        row = self._conn.execute(
+            "SELECT recorded_at FROM positions WHERE vehicle_id=? ORDER BY id DESC LIMIT 1 OFFSET 1",
+            (vehicle_id,),
+        ).fetchone()
+        return row["recorded_at"] if row else None
 
     def get_open_trip(self, vehicle_id: int):
         """Latest trip left open (ended_at NULL), or None."""
