@@ -894,6 +894,13 @@ def log_maintenance(item_id: int, odometer_km: float | None, cost: float | None,
         (odometer_km or None, now_iso[:10], item_id),
     )
     db.commit()
+    global _ro_conn
+    if _ro_conn is not None:
+        try:
+            _ro_conn.close()
+        except Exception:
+            pass
+        _ro_conn = None
     row = db.execute("SELECT * FROM maintenance_items WHERE id=?", (item_id,)).fetchone()
     return dict(row) if row else {}
 
