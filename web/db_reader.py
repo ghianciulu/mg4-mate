@@ -896,3 +896,92 @@ def log_maintenance(item_id: int, odometer_km: float | None, cost: float | None,
     db.commit()
     row = db.execute("SELECT * FROM maintenance_items WHERE id=?", (item_id,)).fetchone()
     return dict(row) if row else {}
+
+
+# ── Trip similarity ───────────────────────────────────────────────────────────
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(dlon / 2) ** 2)
+    return R * 2 * math.asin(math.sqrt(max(0.0, a)))
+
+
+def _similarity_score(t: dict, c: dict) -> int:
+    """Return a 0–100 similarity score. Returns 0 if any hard gate fails."""
+    d1 = t.get("distance_km") or 0
+    d2 = c.get("distance_km") or 0
+    if d1 < 1 or d2 < 1:
+        return 0
+    if abs(d1 - d2) / min(d1, d2) > 0.40:
+        return 0
+
+    coords = ("start_lat", "start_lon", "end_lat", "end_lon")
+    if not all(t.get(k) and c.get(k) for k in coords):
+        return 0
+
+    start_dist = _haversine_km(t["start_lat"], t["start_lon"], c["start_lat"], c["start_lon"])
+    end_dist   = _haversine_km(t["end_lat"],   t["end_lon"],   c["end_lat"],   c["end_lon"])
+    if start_dist > 5.0 or end_dist > 5.0:
+        return 0
+
+    time_score = 0.0
+    try:
+        h1 = _parse_local(t["started_at"]).hour + _parse_local(t["started_at"]).minute / 60.0
+        h2 = _parse_local(c["started_at"]).hour + _parse_local(c["started_at"]).minute / 60.0
+        diff_h = min(abs(h1 - h2), 24.0 - abs(h1 - h2))
+        time_score = max(0.0, 1.0 - diff_h / 4.0)
+    except Exception:
+        pass
+
+    coord_score = max(0.0, 1.0 - (start_dist + end_dist) / 10.0)
+    dist_score  = max(0.0, 1.0 - abs(d1 - d2) / (0.40 * max(d1, d2)))
+
+    return round((coord_score * 0.5 + dist_score * 0.3 + time_score * 0.2) * 100)
+
+
+def get_similar_trips(trip_id: int, limit: int = 8, days: int = 365) -> list[dict]:
+    """Return up to `limit` trips similar to trip_id, sorted by similarity score DESC."""
+    db = _get()
+    target_row = db.execute("SELECT * FROM trips WHERE id=?", (trip_id,)).fetchone()
+    if not target_row:
+        return []
+    target = dict(target_row)
+    if not all(target.get(k) for k in ("start_lat", "start_lon", "end_lat", "end_lon",
+                                        "distance_km")):
+        return []
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    rows = db.execute(
+        """SELECT t.*,
+               (SELECT p.outside_temp
+                FROM positions p
+                WHERE p.recorded_at <= t.started_at
+                  AND p.outside_temp IS NOT NULL
+                ORDER BY p.recorded_at DESC LIMIT 1) AS outside_temp
+           FROM trips t
+           WHERE t.id != ?
+             AND t.ended_at IS NOT NULL
+             AND (t.untracked IS NULL OR t.untracked = 0)
+             AND COALESCE(t.distance_km, 0) >= 1
+             AND t.started_at >= ?
+             AND t.start_lat IS NOT NULL
+             AND t.end_lat IS NOT NULL
+           ORDER BY t.started_at DESC
+           LIMIT 500""",
+        (trip_id, cutoff),
+    ).fetchall()
+
+    scored: list[dict] = []
+    for row in rows:
+        c = dict(row)
+        score = _similarity_score(target, c)
+        if score >= 30:
+            c["similarity_score"] = score
+            scored.append(c)
+
+    scored.sort(key=lambda x: x["similarity_score"], reverse=True)
+    return scored[:limit]
