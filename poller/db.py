@@ -120,6 +120,29 @@ CREATE INDEX IF NOT EXISTS idx_positions_vehicle ON positions(vehicle_id, record
 CREATE INDEX IF NOT EXISTS idx_trip_positions_trip ON trip_positions(trip_id);
 CREATE INDEX IF NOT EXISTS idx_trips_vehicle ON trips(vehicle_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_charges_vehicle ON charges(vehicle_id, started_at);
+
+CREATE TABLE IF NOT EXISTS maintenance_items (
+    id              INTEGER PRIMARY KEY,
+    title           TEXT NOT NULL,
+    interval_km     INTEGER,
+    interval_months INTEGER,
+    trigger_mode    TEXT NOT NULL DEFAULT 'either',
+    last_done_km    REAL,
+    last_done_date  TEXT,
+    notes           TEXT
+);
+
+CREATE TABLE IF NOT EXISTS maintenance_logs (
+    id           INTEGER PRIMARY KEY,
+    item_id      INTEGER REFERENCES maintenance_items(id) ON DELETE CASCADE,
+    done_at      TEXT NOT NULL,
+    odometer_km  REAL,
+    cost         REAL,
+    provider     TEXT,
+    notes        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_maintenance_logs_item ON maintenance_logs(item_id);
 """
 
 # self.get_battery_capacity() is now stored in settings table, not hardcoded
@@ -164,6 +187,19 @@ MIGRATIONS: list[tuple[int, list[str]]] = [
     ]),
 ]
 
+_MG4_SCHEDULE: list[tuple[str, int | None, int | None, str]] = [
+    ("Rotazione pneumatici",                10_000, 12, "either"),
+    ("Filtro abitacolo",                    20_000, 24, "either"),
+    ("Liquido freni",                         None, 24, "months"),
+    ("Controllo pastiglie freno",           20_000, 24, "either"),
+    ("Tergicristalli",                        None, 12, "months"),
+    ("Revisione impianto A/C",                None, 24, "months"),
+    ("Ispezione liquido raffreddamento",    60_000, 60, "either"),
+    ("Fluido ponte motore",                 40_000, 48, "either"),
+    ("Controllo batteria HV",                 None, 12, "months"),
+    ("Tagliando completo",                  30_000, 24, "either"),
+]
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -189,6 +225,7 @@ class Database:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(SCHEMA)
         self._apply_migrations()
+        self._seed_maintenance_items()
         log.info("Database ready: %s", path)
 
     def _apply_migrations(self) -> None:
@@ -216,6 +253,21 @@ class Database:
                 "INSERT INTO schema_migrations (version) VALUES (?)", (version,)
             )
         self._conn.commit()
+
+    def _seed_maintenance_items(self) -> None:
+        count = self._conn.execute(
+            "SELECT COUNT(*) FROM maintenance_items"
+        ).fetchone()[0]
+        if count > 0:
+            return
+        for title, interval_km, interval_months, trigger_mode in _MG4_SCHEDULE:
+            self._conn.execute(
+                "INSERT INTO maintenance_items "
+                "(title, interval_km, interval_months, trigger_mode) VALUES (?,?,?,?)",
+                (title, interval_km, interval_months, trigger_mode),
+            )
+        self._conn.commit()
+        log.info("Seeded %d MG4 maintenance items", len(_MG4_SCHEDULE))
 
     # ── Settings ─────────────────────────────────────────────────────────────
 
