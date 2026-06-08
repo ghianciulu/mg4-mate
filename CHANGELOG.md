@@ -1,7 +1,5 @@
 # Changelog
 
-## Unreleased
-
 ## 1.5.0
 
 - Added maintenance tracker: MG4-specific 10-item service schedule (tires, brake fluid, cabin filter, A/C, HV battery, full inspection, etc.) with overdue/upcoming/OK status, inline "Log service" form, and full service history log.
