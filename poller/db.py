@@ -189,7 +189,6 @@ class Database:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(SCHEMA)
         self._apply_migrations()
-        self._conn.commit()
         log.info("Database ready: %s", path)
 
     def _apply_migrations(self) -> None:
@@ -210,6 +209,7 @@ class Database:
                 try:
                     self._conn.execute(stmt)
                 except sqlite3.OperationalError as exc:
+                    # Safe: SQLite raises this when the column already exists (pre-migration DB)
                     if "duplicate column" not in str(exc).lower():
                         raise
             self._conn.execute(
