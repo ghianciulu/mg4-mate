@@ -124,6 +124,46 @@ CREATE INDEX IF NOT EXISTS idx_charges_vehicle ON charges(vehicle_id, started_at
 
 # self.get_battery_capacity() is now stored in settings table, not hardcoded
 
+MIGRATIONS: list[tuple[int, list[str]]] = [
+    (1, [
+        "ALTER TABLE positions ADD COLUMN climate_target_temp REAL",
+        "ALTER TABLE positions ADD COLUMN battery_min_temp REAL",
+    ]),
+    (2, [
+        "ALTER TABLE positions ADD COLUMN is_locked INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN climate_on INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN climate_cooling INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN climate_heating INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN climate_defrost INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN trunk_open INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN windows_open INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN sunshade_open INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN plug_connected INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN remaining_charge_min INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN charge_voltage_v REAL DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN charge_current_a REAL DEFAULT NULL",
+    ]),
+    (3, [
+        "ALTER TABLE positions ADD COLUMN door_fl_open INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN door_fr_open INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN door_rl_open INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN door_rr_open INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN bonnet_open INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN aux_battery_v REAL DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN lights_any INTEGER DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN heading_deg REAL DEFAULT NULL",
+    ]),
+    (4, [
+        "ALTER TABLE positions ADD COLUMN tyre_fl_bar REAL DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN tyre_fr_bar REAL DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN tyre_rl_bar REAL DEFAULT NULL",
+        "ALTER TABLE positions ADD COLUMN tyre_rr_bar REAL DEFAULT NULL",
+    ]),
+    (5, [
+        "ALTER TABLE trips ADD COLUMN untracked INTEGER DEFAULT 0",
+    ]),
+]
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -148,59 +188,34 @@ class Database:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(SCHEMA)
-        # migration: add battery_min_temp if missing (existing DBs)
-        cols = {r[1] for r in self._conn.execute("PRAGMA table_info(positions)").fetchall()}
-        if "climate_target_temp" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN climate_target_temp REAL")
-        if "battery_min_temp" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN battery_min_temp REAL")
-        if "is_locked" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN is_locked INTEGER DEFAULT NULL")
-        if "climate_on" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN climate_on INTEGER DEFAULT NULL")
-        if "climate_cooling" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN climate_cooling INTEGER DEFAULT NULL")
-        if "climate_heating" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN climate_heating INTEGER DEFAULT NULL")
-        if "climate_defrost" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN climate_defrost INTEGER DEFAULT NULL")
-        if "trunk_open" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN trunk_open INTEGER DEFAULT NULL")
-        if "windows_open" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN windows_open INTEGER DEFAULT NULL")
-        if "sunshade_open" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN sunshade_open INTEGER DEFAULT NULL")
-        if "plug_connected" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN plug_connected INTEGER DEFAULT NULL")
-        if "remaining_charge_min" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN remaining_charge_min INTEGER DEFAULT NULL")
-        if "charge_voltage_v" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN charge_voltage_v REAL DEFAULT NULL")
-        if "charge_current_a" not in cols:
-            self._conn.execute("ALTER TABLE positions ADD COLUMN charge_current_a REAL DEFAULT NULL")
-        for col, defn in [
-            ("door_fl_open", "INTEGER DEFAULT NULL"),
-            ("door_fr_open", "INTEGER DEFAULT NULL"),
-            ("door_rl_open", "INTEGER DEFAULT NULL"),
-            ("door_rr_open", "INTEGER DEFAULT NULL"),
-            ("bonnet_open", "INTEGER DEFAULT NULL"),
-            ("aux_battery_v", "REAL DEFAULT NULL"),
-            ("lights_any", "INTEGER DEFAULT NULL"),
-            ("heading_deg", "REAL DEFAULT NULL"),
-            ("tyre_fl_bar", "REAL DEFAULT NULL"),
-            ("tyre_fr_bar", "REAL DEFAULT NULL"),
-            ("tyre_rl_bar", "REAL DEFAULT NULL"),
-            ("tyre_rr_bar", "REAL DEFAULT NULL"),
-        ]:
-            if col not in cols:
-                self._conn.execute(f"ALTER TABLE positions ADD COLUMN {col} {defn}")
-        # migration: add untracked flag to trips (ghost trips detected via odometer jump)
-        try:
-            self._conn.execute("ALTER TABLE trips ADD COLUMN untracked INTEGER DEFAULT 0")
-        except Exception:
-            pass  # column already exists on existing DBs
+        self._apply_migrations()
         self._conn.commit()
         log.info("Database ready: %s", path)
+
+    def _apply_migrations(self) -> None:
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations "
+            "(version INTEGER PRIMARY KEY, "
+            " applied_at TEXT NOT NULL DEFAULT (datetime('now')))"
+        )
+        applied = {
+            r[0] for r in self._conn.execute(
+                "SELECT version FROM schema_migrations"
+            ).fetchall()
+        }
+        for version, stmts in MIGRATIONS:
+            if version in applied:
+                continue
+            for stmt in stmts:
+                try:
+                    self._conn.execute(stmt)
+                except sqlite3.OperationalError as exc:
+                    if "duplicate column" not in str(exc).lower():
+                        raise
+            self._conn.execute(
+                "INSERT INTO schema_migrations (version) VALUES (?)", (version,)
+            )
+        self._conn.commit()
 
     # ── Settings ─────────────────────────────────────────────────────────────
 
