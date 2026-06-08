@@ -54,7 +54,7 @@
     <div>
       <div class="text-slate-500 uppercase tracking-wide">{{ t('maint_km_remaining') }}</div>
       <div class="font-medium {% if item.km_remaining < 0 %}text-red-400{% elif item.km_remaining < 1500 %}text-yellow-400{% else %}text-white{% endif %}">
-        {{ item.km_remaining | abs }} km{% if item.km_remaining < 0 %} scaduto{% endif %}
+        {{ item.km_remaining | abs }} km{% if item.km_remaining < 0 %} {{ t('maint_suffix_overdue') }}{% endif %}
       </div>
     </div>
     {% endif %}
@@ -70,7 +70,7 @@
     <div>
       <div class="text-slate-500 uppercase tracking-wide">{{ t('maint_days_remaining') }}</div>
       <div class="font-medium {% if item.days_remaining < 0 %}text-red-400{% elif item.days_remaining <= 30 %}text-yellow-400{% else %}text-white{% endif %}">
-        {{ item.days_remaining | abs }} gg{% if item.days_remaining < 0 %} scaduto{% endif %}
+        {{ item.days_remaining | abs }} {{ t('maint_days_abbr') }}{% if item.days_remaining < 0 %} {{ t('maint_suffix_overdue') }}{% endif %}
       </div>
     </div>
     {% endif %}
