@@ -1,7 +1,8 @@
 """Read-only DB queries for the web layer."""
 import sqlite3
 import time
-from datetime import datetime, timezone
+import math
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
 
@@ -780,3 +781,118 @@ def get_soc_history(days: int = 30) -> list[dict]:
                ORDER BY hour ASC""",
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Maintenance ──────────────────────────────────────────────────────────────
+
+def _add_months(dt: datetime, months: int) -> datetime:
+    """Add months to a datetime without dateutil dependency."""
+    month = dt.month - 1 + months
+    year  = dt.year + month // 12
+    month = month % 12 + 1
+    days_in_month = [31, 28 if year % 4 != 0 or (year % 100 == 0 and year % 400 != 0)
+                     else 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+    return dt.replace(year=year, month=month, day=min(dt.day, days_in_month))
+
+
+def _maintenance_status(item: dict, current_km: float | None, now: datetime) -> dict:
+    """Augment an item dict with status/km_remaining/days_remaining/next_due fields."""
+    result = dict(item)
+
+    km_overdue = km_upcoming = False
+    days_overdue = days_upcoming = False
+    km_remaining = days_remaining = None
+
+    if item["interval_km"] and item["last_done_km"] and current_km is not None:
+        next_km     = item["last_done_km"] + item["interval_km"]
+        km_remaining = next_km - current_km
+        km_overdue  = km_remaining < 0
+        km_upcoming = 0 <= km_remaining <= item["interval_km"] * 0.15
+
+    if item["interval_months"] and item["last_done_date"]:
+        try:
+            last_dt        = datetime.strptime(item["last_done_date"], "%Y-%m-%d")
+            next_dt        = _add_months(last_dt, item["interval_months"])
+            days_remaining = (next_dt.date() - now.date()).days
+            days_overdue  = days_remaining < 0
+            days_upcoming = 0 <= days_remaining <= 30
+        except Exception:
+            pass
+
+    mode = item["trigger_mode"]
+    if mode == "km":
+        overdue, upcoming = km_overdue, km_upcoming
+    elif mode == "months":
+        overdue, upcoming = days_overdue, days_upcoming
+    elif mode == "both":
+        overdue  = km_overdue and days_overdue
+        upcoming = not overdue and (km_upcoming and days_upcoming)
+    else:  # either (default)
+        overdue  = km_overdue or days_overdue
+        upcoming = not overdue and (km_upcoming or days_upcoming)
+
+    result["status"]        = "overdue" if overdue else "upcoming" if upcoming else "ok"
+    result["km_remaining"]  = int(km_remaining) if km_remaining is not None else None
+    result["days_remaining"] = days_remaining
+
+    # next_due helpers for the template
+    if item["interval_km"] and item["last_done_km"]:
+        result["next_due_km"] = int(item["last_done_km"] + item["interval_km"])
+    else:
+        result["next_due_km"] = None
+
+    if item["interval_months"] and item["last_done_date"]:
+        try:
+            last_dt = datetime.strptime(item["last_done_date"], "%Y-%m-%d")
+            result["next_due_date"] = _add_months(last_dt, item["interval_months"]).strftime("%Y-%m-%d")
+        except Exception:
+            result["next_due_date"] = None
+    else:
+        result["next_due_date"] = None
+
+    return result
+
+
+def get_maintenance_items(current_km: float | None = None) -> list[dict]:
+    db  = _get()
+    now = datetime.now()
+    rows = db.execute("SELECT * FROM maintenance_items ORDER BY id").fetchall()
+    return [_maintenance_status(dict(r), current_km, now) for r in rows]
+
+
+def get_maintenance_logs(item_id: int | None = None, limit: int = 50) -> list[dict]:
+    db = _get()
+    if item_id is not None:
+        rows = db.execute(
+            "SELECT l.*, i.title FROM maintenance_logs l "
+            "JOIN maintenance_items i ON i.id = l.item_id "
+            "WHERE l.item_id = ? ORDER BY l.done_at DESC LIMIT ?",
+            (item_id, limit),
+        ).fetchall()
+    else:
+        rows = db.execute(
+            "SELECT l.*, i.title FROM maintenance_logs l "
+            "JOIN maintenance_items i ON i.id = l.item_id "
+            "ORDER BY l.done_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def log_maintenance(item_id: int, odometer_km: float | None, cost: float | None,
+                    provider: str, notes: str) -> dict:
+    db       = _conn_rw()
+    now_iso  = datetime.now(timezone.utc).isoformat()
+    db.execute(
+        "INSERT INTO maintenance_logs (item_id, done_at, odometer_km, cost, provider, notes)"
+        " VALUES (?,?,?,?,?,?)",
+        (item_id, now_iso, odometer_km or None, cost or None,
+         provider or None, notes or None),
+    )
+    db.execute(
+        "UPDATE maintenance_items SET last_done_km=?, last_done_date=? WHERE id=?",
+        (odometer_km or None, now_iso[:10], item_id),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM maintenance_items WHERE id=?", (item_id,)).fetchone()
+    return dict(row) if row else {}
