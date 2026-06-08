@@ -152,9 +152,11 @@ async def trip_detail(request: Request, trip_id: int):
     if not trip:
         return RedirectResponse(request.headers.get("x-ingress-path", "") + "/trips")
     prev_trip, next_trip = db_reader.get_adjacent_trips(trip_id)
+    similar = db_reader.get_similar_trips(trip_id, limit=8, days=365)
     return templates.TemplateResponse(request, "trip_detail.html", _ctx(
         page="trips", vehicle=vehicle, trip=trip,
         prev_trip=prev_trip, next_trip=next_trip,
+        similar_trips=similar,
     ))
 
 

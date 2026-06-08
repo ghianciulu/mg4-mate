@@ -181,4 +181,76 @@
   </div>
 
 </div>
+
+{# ── Similar trips ──────────────────────────────────────────────────────── #}
+{% if similar_trips %}
+<div class="mt-6 card">
+  <div class="mb-4">
+    <h2 class="font-semibold text-white">{{ t('similar_trips') }}</h2>
+    <p class="text-xs text-slate-400 mt-0.5">{{ t('similar_trips_subtitle') }}</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-slate-400 text-xs uppercase tracking-wide border-b border-slate-700">
+          <th class="pb-2 pr-4">{{ t('similar_date') }}</th>
+          <th class="pb-2 pr-4">{{ t('similar_distance') }}</th>
+          <th class="pb-2 pr-4">{{ t('similar_efficiency') }}</th>
+          <th class="pb-2 pr-4">{{ t('similar_outside_temp') }}</th>
+          <th class="pb-2 text-right">{{ t('similar_match') }}</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800">
+        {% for s in similar_trips %}
+        {% set s_eff = s.efficiency_kwh_100km %}
+        {% set t_eff = trip.efficiency_kwh_100km %}
+        <tr class="text-slate-300 hover:bg-slate-800 cursor-pointer"
+            onclick="window.location='trips/{{ s.id }}'">
+          <td class="py-2 pr-4 whitespace-nowrap">
+            <a href="trips/{{ s.id }}" class="text-brand hover:underline">
+              {{ (s.started_at | localts)[:10] }}
+            </a>
+            <span class="text-slate-500 text-xs ml-1">{{ (s.started_at | localts)[11:16] }}</span>
+          </td>
+          <td class="py-2 pr-4">{{ "%.1f"|format(s.distance_km or 0) }} km</td>
+          <td class="py-2 pr-4">
+            {% if s_eff %}
+            <span class="{% if t_eff and s_eff < t_eff %}text-green-400{% elif t_eff and s_eff > t_eff %}text-red-400{% else %}text-white{% endif %} font-medium">
+              {{ "%.1f"|format(s_eff) }} kWh/100
+            </span>
+            {% if t_eff and s_eff != t_eff %}
+            <span class="text-xs text-slate-500 ml-1">
+              ({{ "%.1f"|format((s_eff - t_eff) | abs) }}
+               {% if s_eff < t_eff %}{{ t('similar_better') }}{% else %}{{ t('similar_worse') }}{% endif %})
+            </span>
+            {% endif %}
+            {% else %}
+            <span class="text-slate-500">—</span>
+            {% endif %}
+          </td>
+          <td class="py-2 pr-4">
+            {% if s.outside_temp is not none %}
+            {{ "%.0f"|format(s.outside_temp) }}°C
+            {% else %}—{% endif %}
+          </td>
+          <td class="py-2 text-right">
+            <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold
+                         {% if s.similarity_score >= 80 %}bg-teal-900 text-teal-300
+                         {% elif s.similarity_score >= 60 %}bg-blue-900 text-blue-300
+                         {% else %}bg-slate-700 text-slate-400{% endif %}">
+              {{ s.similarity_score }}%
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="mt-6 card">
+  <h2 class="font-semibold text-white mb-2">{{ t('similar_trips') }}</h2>
+  <p class="text-slate-500 text-sm">{{ t('similar_trips_none') }}</p>
+</div>
+{% endif %}
 {% endblock %}
