@@ -36,6 +36,7 @@ def _localts_filter(ts) -> str:
 
 
 templates.env.filters["localts"] = _localts_filter
+templates.env.filters["abs"] = abs
 
 
 # ── Setup check middleware ────────────────────────────────────────────────────
@@ -494,6 +495,51 @@ async def api_efficiency_temp():
 @app.get("/api/charts/trip-paths")
 async def api_trip_paths(limit: int = 200):
     return JSONResponse(db_reader.get_trip_paths(limit))
+
+
+# ── Maintenance page ──────────────────────────────────────────────────────────
+
+@app.get("/maintenance", response_class=HTMLResponse)
+async def maintenance_page(request: Request):
+    vehicle, _ = db_reader.get_vehicle()
+    status      = db_reader.get_latest_status()
+    current_km  = (status or {}).get("odometer_km")
+    items       = db_reader.get_maintenance_items(current_km)
+    logs        = db_reader.get_maintenance_logs(limit=15)
+    overdue     = sum(1 for i in items if i["status"] == "overdue")
+    upcoming    = sum(1 for i in items if i["status"] == "upcoming")
+    return templates.TemplateResponse(request, "maintenance.html", _ctx(
+        page="maintenance", vehicle=vehicle,
+        items=items, logs=logs,
+        overdue=overdue, upcoming=upcoming,
+    ))
+
+
+@app.post("/api/maintenance/{item_id}/log", response_class=HTMLResponse)
+async def log_maintenance_api(request: Request, item_id: int):
+    form = await request.form()
+    try:
+        odo_raw  = str(form.get("odometer_km", "")).strip()
+        cost_raw = str(form.get("cost", "")).strip()
+        odometer_km = float(odo_raw)  if odo_raw  else None
+        cost        = float(cost_raw) if cost_raw else None
+    except (ValueError, TypeError):
+        return HTMLResponse('<span class="text-red-400">Invalid data</span>', status_code=400)
+
+    provider = str(form.get("provider", "")).strip()
+    notes    = str(form.get("notes",    "")).strip()
+
+    db_reader.log_maintenance(item_id, odometer_km, cost, provider, notes)
+
+    status     = db_reader.get_latest_status()
+    current_km = (status or {}).get("odometer_km")
+    items      = db_reader.get_maintenance_items(current_km)
+    item       = next((i for i in items if i["id"] == item_id), None)
+    if not item:
+        return HTMLResponse('<span class="text-red-400">Item not found</span>', status_code=404)
+    return templates.TemplateResponse(
+        request, "partials/maintenance_item_card.html", _ctx(item=item)
+    )
 
 
 if __name__ == "__main__":
