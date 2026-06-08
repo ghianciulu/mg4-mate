@@ -1,0 +1,125 @@
+{# Renders one maintenance item card. Used both in the full page and as HTMX swap target. #}
+<div class="card" id="maint-item-{{ item.id }}">
+  <div class="flex items-start justify-between gap-3">
+    <div class="flex items-center gap-2 min-w-0">
+      {% if item.status == 'overdue' %}
+        <span class="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-500"></span>
+      {% elif item.status == 'upcoming' %}
+        <span class="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+      {% else %}
+        <span class="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-green-500"></span>
+      {% endif %}
+      <span class="font-semibold text-white text-sm truncate">{{ item.title }}</span>
+    </div>
+    <button
+      type="button"
+      onclick="document.getElementById('log-form-{{ item.id }}').classList.toggle('hidden')"
+      class="flex-shrink-0 text-xs text-brand hover:text-teal-300 font-medium">
+      {{ t('maint_log_btn') }}
+    </button>
+  </div>
+
+  {# Status badge #}
+  <div class="mt-2">
+    {% if item.status == 'overdue' %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-red-900 text-red-300">
+        {{ t('maint_status_overdue') }}
+      </span>
+    {% elif item.status == 'upcoming' %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-yellow-900 text-yellow-300">
+        {{ t('maint_status_upcoming') }}
+      </span>
+    {% else %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-900 text-green-300">
+        {{ t('maint_status_ok') }}
+      </span>
+    {% endif %}
+  </div>
+
+  {# Details grid #}
+  <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+    {% if item.last_done_date %}
+    <div>
+      <div class="text-slate-500 uppercase tracking-wide">{{ t('maint_last_done') }}</div>
+      <div class="text-white font-medium">{{ item.last_done_date }}</div>
+    </div>
+    {% else %}
+    <div>
+      <div class="text-slate-500 uppercase tracking-wide">{{ t('maint_last_done') }}</div>
+      <div class="text-slate-500">{{ t('maint_never_done') }}</div>
+    </div>
+    {% endif %}
+
+    {% if item.km_remaining is not none %}
+    <div>
+      <div class="text-slate-500 uppercase tracking-wide">{{ t('maint_km_remaining') }}</div>
+      <div class="font-medium {% if item.km_remaining < 0 %}text-red-400{% elif item.km_remaining < 1500 %}text-yellow-400{% else %}text-white{% endif %}">
+        {{ item.km_remaining | abs }} km{% if item.km_remaining < 0 %} scaduto{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if item.next_due_km %}
+    <div>
+      <div class="text-slate-500 uppercase tracking-wide">{{ t('maint_next_due_km') }}</div>
+      <div class="text-white font-medium">{{ item.next_due_km | int }} km</div>
+    </div>
+    {% endif %}
+
+    {% if item.days_remaining is not none %}
+    <div>
+      <div class="text-slate-500 uppercase tracking-wide">{{ t('maint_days_remaining') }}</div>
+      <div class="font-medium {% if item.days_remaining < 0 %}text-red-400{% elif item.days_remaining <= 30 %}text-yellow-400{% else %}text-white{% endif %}">
+        {{ item.days_remaining | abs }} gg{% if item.days_remaining < 0 %} scaduto{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# Log service form (hidden by default, toggled by the button above) #}
+  <div id="log-form-{{ item.id }}" class="hidden mt-4 pt-4 border-t border-slate-700">
+    <form hx-post="api/maintenance/{{ item.id }}/log"
+          hx-target="#maint-item-{{ item.id }}"
+          hx-swap="outerHTML"
+          hx-on::after-request="this.reset()"
+          class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">{{ t('maint_log_odometer') }}</label>
+          <input type="number" name="odometer_km" step="1" placeholder="es. 55000"
+                 class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-sm text-white
+                        focus:outline-none focus:border-brand"/>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">{{ t('maint_log_cost') }}</label>
+          <input type="number" name="cost" step="0.01" placeholder="es. 120.00"
+                 class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-sm text-white
+                        focus:outline-none focus:border-brand"/>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">{{ t('maint_log_provider') }}</label>
+        <input type="text" name="provider" maxlength="100"
+               class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-sm text-white
+                      focus:outline-none focus:border-brand"/>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">{{ t('maint_log_notes') }}</label>
+        <input type="text" name="notes" maxlength="200"
+               class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-sm text-white
+                      focus:outline-none focus:border-brand"/>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit"
+                class="px-3 py-1.5 bg-brand text-white text-sm rounded hover:bg-teal-400 font-medium">
+          {{ t('maint_log_save') }}
+        </button>
+        <button type="button"
+                onclick="document.getElementById('log-form-{{ item.id }}').classList.add('hidden')"
+                class="px-3 py-1.5 bg-slate-700 text-slate-300 text-sm rounded hover:bg-slate-600">
+          {{ t('maint_log_cancel') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
